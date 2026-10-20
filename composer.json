@@ -1,0 +1,34 @@
+{
+    "name": "jgalea/swapline",
+    "description": "Search and replace across WordPress database tables, with serialized data, JSON, dry runs and per-cell diffs.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "php": ">=8.0"
+    },
+    "require-dev": {
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+        "phpcompatibility/phpcompatibility-wp": "^2.1",
+        "phpunit/phpunit": "^9.6",
+        "wp-coding-standards/wpcs": "^3.1"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Swapline\\": "src/",
+            "Swapline\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "lint": "phpcs"
+    },
+    "config": {
+        "sort-packages": true,
+        "platform": {
+            "php": "8.0.30"
+        },
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    }
+}

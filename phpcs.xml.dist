@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<ruleset name="Swapline">
+	<file>swapline.php</file>
+	<file>uninstall.php</file>
+	<file>src</file>
+	<file>tests</file>
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<arg name="extensions" value="php"/>
+	<arg value="ps"/>
+	<config name="testVersion" value="8.0-"/>
+	<config name="minimum_wp_version" value="6.2"/>
+	<rule ref="PHPCompatibilityWP"/>
+	<rule ref="WordPress-Extra">
+		<exclude name="WordPress.Files.FileName"/>
+	</rule>
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="swapline"/>
+			</property>
+		</properties>
+	</rule>
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="swapline"/>
+				<element value="Swapline"/>
+				<element value="SWAPLINE"/>
+			</property>
+		</properties>
+	</rule>
+	<rule ref="WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize">
+		<exclude-pattern>*/tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize">
+		<exclude-pattern>*/tests/*</exclude-pattern>
+	</rule>
+</ruleset>

@@ -1,0 +1,200 @@
+.swapline .swapline-profiles {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+	margin: 16px 0 8px;
+}
+
+.swapline .swapline-table-tools {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+	margin-bottom: 8px;
+}
+
+.swapline .swapline-tables {
+	max-height: 360px;
+	overflow: auto;
+	border: 1px solid #c3c4c7;
+}
+
+.swapline .swapline-tables .widefat {
+	border: 0;
+}
+
+.swapline .swapline-tables thead th,
+.swapline .swapline-tables thead td {
+	position: sticky;
+	top: 0;
+	background: #fff;
+	z-index: 1;
+	box-shadow: inset 0 -1px 0 #c3c4c7;
+}
+
+.swapline .swapline-tables tbody th,
+.swapline .swapline-tables tbody td {
+	vertical-align: middle;
+}
+
+.swapline .swapline-tables tbody .check-column {
+	padding: 8px 0 8px 10px;
+}
+
+.swapline .swapline-tables td code {
+	background: none;
+	padding: 0;
+	word-break: break-all;
+}
+
+.swapline .num {
+	text-align: right;
+	white-space: nowrap;
+}
+
+.swapline .swapline-regex-help {
+	margin: 2px 0 6px 24px;
+}
+
+.swapline .swapline-save-profile {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+	border-top: 1px solid #dcdcde;
+	padding-top: 16px;
+}
+
+.swapline #swapline-progress {
+	margin-top: 20px;
+}
+
+.swapline #swapline-progress progress {
+	width: 100%;
+	max-width: 600px;
+	height: 16px;
+}
+
+.swapline .swapline-scroll {
+	position: relative;
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+.swapline .swapline-report {
+	max-width: 960px;
+	margin: 8px 0;
+}
+
+.swapline .swapline-report code {
+	white-space: nowrap;
+}
+
+.swapline #swapline-changes .tablenav-pages {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+.swapline .swapline-change {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	padding: 0 12px 12px;
+	margin: 12px 0;
+}
+
+.swapline .swapline-change h3 {
+	font-size: 13px;
+	margin: 12px 0 4px;
+	word-break: break-all;
+}
+
+.swapline .swapline-diff {
+	overflow-x: auto;
+}
+
+.swapline .swapline-diff table.diff {
+	table-layout: fixed;
+	width: 100%;
+}
+
+.swapline .swapline-diff table.diff td {
+	font-family: Consolas, Monaco, monospace;
+	font-size: 12px;
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+.swapline .swapline-backup-tables,
+.swapline .swapline-replace-fields,
+.swapline .swapline-source {
+	margin: 8px 0 4px 24px;
+}
+
+.swapline .swapline-replace-fields .large-text {
+	max-width: 600px;
+}
+
+.swapline .swapline-backups {
+	margin-top: 8px;
+}
+
+.swapline .swapline-backups .swapline-file {
+	background: none;
+	padding: 0;
+	font-size: 12px;
+	word-break: break-all;
+}
+
+.swapline .swapline-actions {
+	white-space: nowrap;
+}
+
+.swapline .swapline-actions .button {
+	margin: 2px 4px 2px 0;
+}
+
+.swapline .swapline-inline-form {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+	margin-top: 16px;
+}
+
+.swapline #swapline-results {
+	margin-top: 16px;
+}
+
+.swapline #swapline-results .swapline-report code {
+	white-space: normal;
+	word-break: break-all;
+}
+
+#swapline-confirm {
+	max-width: min(480px, calc(100vw - 32px));
+	border: 1px solid #c3c4c7;
+	padding: 0 20px;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+#swapline-confirm::backdrop {
+	background: rgba(0, 0, 0, 0.4);
+}
+
+#swapline-confirm .swapline-dialog-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+@media screen and (max-width: 782px) {
+	.swapline .swapline-tables {
+		max-height: 300px;
+	}
+
+	.swapline .swapline-diff table.diff {
+		min-width: 560px;
+	}
+}
