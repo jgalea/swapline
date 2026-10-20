@@ -46,7 +46,7 @@ final class Table {
 		foreach ( $columns as $column ) {
 			$this->columns[ $column['Field'] ] = strtolower( (string) $column['Type'] );
 			$nullable[ $column['Field'] ]      = 'YES' === $column['Null'];
-			if ( false !== stripos( (string) $column['Extra'], 'GENERATED' ) ) {
+			if ( self::is_generated( (string) $column['Extra'] ) ) {
 				$this->generated[] = $column['Field'];
 			}
 		}
@@ -80,6 +80,14 @@ final class Table {
 				return;
 			}
 		}
+	}
+
+	/**
+	 * True for virtual and stored generated columns. MySQL 8 also reports
+	 * DEFAULT_GENERATED for ordinary columns with an expression default.
+	 */
+	public static function is_generated( string $extra ): bool {
+		return 1 === preg_match( '/\b(?:VIRTUAL|STORED|PERSISTENT)\s+GENERATED\b/i', $extra );
 	}
 
 	/**

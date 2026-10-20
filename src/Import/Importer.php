@@ -674,7 +674,7 @@ final class Importer {
 
 		foreach ( $live_columns as $column ) {
 			$extra = (string) $column['Extra'];
-			if ( in_array( $column['Field'], $temp_columns, true ) && false === stripos( $extra, 'auto_increment' ) && false === stripos( $extra, 'GENERATED' ) ) {
+			if ( in_array( $column['Field'], $temp_columns, true ) && false === stripos( $extra, 'auto_increment' ) && ! Table::is_generated( $extra ) ) {
 				$shared[] = (string) $column['Field'];
 			}
 		}
