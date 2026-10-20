@@ -111,6 +111,11 @@ SQL;
 			'quoted function check'     => array( 'CREATE TABLE `wp_t` (`id` int CHECK (`f` (`id`)))' ),
 			'qualified function'        => array( 'CREATE TABLE wp_t (id int, d datetime DEFAULT (mydb.now()))' ),
 			'quoted qualified function' => array( 'CREATE TABLE wp_t (id int, d datetime DEFAULT (`mydb`.`now`()))' ),
+			'single-quoted engine'      => array( "CREATE TABLE wp_t (id int) ENGINE='BLACKHOLE'" ),
+			'double-quoted engine'      => array( 'CREATE TABLE wp_t (id int) ENGINE = "FEDERATED"' ),
+			'backticked engine'         => array( 'CREATE TABLE wp_t (id int) ENGINE=`CSV`' ),
+			'quoted second engine'      => array( "CREATE TABLE wp_t (id int) ENGINE=InnoDB, ENGINE='BLACKHOLE'" ),
+			'unreadable engine'         => array( "CREATE TABLE wp_t (id int) ENGINE='Inno''DB'" ),
 		);
 	}
 
@@ -234,6 +239,8 @@ SQL;
 			'index prefix length' => array( 'CREATE TABLE `wp_postmeta` (`meta_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT, `meta_key` varchar(255) DEFAULT NULL, PRIMARY KEY (`meta_id`), KEY `meta_key` (`meta_key`(191)), KEY `pair` (`meta_id`,`meta_key`( 32 ))) ENGINE=InnoDB' ),
 			'quoted key names'    => array( 'CREATE TABLE `wp_t` (`id` int, `parent` int, KEY `idx_parent` (`parent`), UNIQUE `u` (`id`), FULLTEXT KEY `ft` (`id`), CONSTRAINT `fk` FOREIGN KEY `fk_parent` (`parent`) REFERENCES `wp_p` (`id`))' ),
 			'unquoted key names'  => array( 'CREATE TABLE wp_t (id int, parent int, KEY idx_parent (parent), UNIQUE KEY u (id), CONSTRAINT fk FOREIGN KEY fk_parent (parent) REFERENCES wp_p (id))' ),
+			'quoted engine'       => array( "CREATE TABLE wp_t (id int) ENGINE='InnoDB' DEFAULT CHARSET=utf8mb4" ),
+			'backticked engine'   => array( 'CREATE TABLE wp_t (id int) ENGINE = `MyISAM`' ),
 		);
 	}
 

@@ -391,10 +391,15 @@ final class Statement {
 		if ( preg_match( '/\b(SELECT|LIKE|UNION|DIRECTORY|TABLESPACE|CONNECTION)\b/i', $options, $m ) ) {
 			return sprintf( 'CREATE TABLE with %s is not allowed.', strtoupper( $m[1] ) );
 		}
-		preg_match_all( '/\bENGINE\s*=?\s*([A-Za-z0-9_]+)/i', $options, $engines );
-		foreach ( $engines[1] as $engine ) {
-			if ( ! in_array( strtolower( $engine ), self::ENGINES, true ) ) {
-				return sprintf( 'The %s storage engine is not allowed.', $engine );
+		// Read on the raw text, since the engine name may be quoted.
+		$raw = (string) substr( $sql, $close + 1 );
+		preg_match_all( '/\bENGINE\b/i', $raw, $engines, PREG_OFFSET_CAPTURE );
+		foreach ( $engines[0] as $found ) {
+			if ( ! preg_match( '/\G\s*=?\s*([\'"`]?)([A-Za-z0-9_]+)\1(?![A-Za-z0-9_\'"`])/i', $raw, $engine, 0, $found[1] + strlen( $found[0] ) ) ) {
+				return 'The storage engine could not be read.';
+			}
+			if ( ! in_array( strtolower( $engine[2] ), self::ENGINES, true ) ) {
+				return sprintf( 'The %s storage engine is not allowed.', $engine[2] );
 			}
 		}
 
