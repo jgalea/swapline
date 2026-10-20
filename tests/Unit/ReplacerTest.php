@@ -290,4 +290,52 @@ final class ReplacerTest extends TestCase {
 		$this->assertSame( 1, $result->replacements );
 		$this->assertSame( 0, $result->failures );
 	}
+
+	public function test_serialized_string_inside_json_that_does_not_round_trip_is_left_alone_and_counted(): void {
+		$original = '{ "data": "s:3:\"old\";" }';
+
+		$result = $this->engine( 'old', 'longer' )->replace( $original );
+
+		$this->assertSame( $original, $result->value );
+		$this->assertSame( 1, $result->failures );
+		$this->assertSame( 0, $result->replacements );
+	}
+
+	public function test_serialized_array_inside_pretty_json_is_left_alone_and_counted(): void {
+		$original = "{\n  \"a\": \"old\",\n  \"meta\": [\"a:1:{s:3:\\\"url\\\";s:3:\\\"old\\\";}\"]\n}";
+
+		$result = $this->engine( 'old', 'longer' )->replace( $original );
+
+		$this->assertSame( $original, $result->value );
+		$this->assertSame( 1, $result->failures );
+	}
+
+	public function test_json_text_replace_still_runs_when_serialized_leaves_survive(): void {
+		$original = '{ "data": "s:3:\"abc\";", "url": "old" }';
+
+		$result = $this->engine( 'old', 'longer' )->replace( $original );
+
+		$this->assertSame( '{ "data": "s:3:\"abc\";", "url": "longer" }', $result->value );
+		$this->assertSame( 0, $result->failures );
+	}
+
+	public function test_uppercase_s_string_is_left_alone_and_counted(): void {
+		$original = 'S:3:"old";';
+		$this->assertSame( 'old', @unserialize( $original ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- newer PHP deprecates the S format.
+
+		$result = $this->engine( 'old', 'longer' )->replace( $original );
+
+		$this->assertSame( $original, $result->value );
+		$this->assertSame( 1, $result->failures );
+	}
+
+	public function test_uppercase_s_string_nested_in_array_is_left_alone_and_counted(): void {
+		$original = 'a:2:{i:0;S:3:"old";i:1;s:3:"old";}';
+		$this->assertSame( array( 'old', 'old' ), @unserialize( $original ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- newer PHP deprecates the S format.
+
+		$result = $this->engine( 'old', 'longer' )->replace( $original );
+
+		$this->assertSame( $original, $result->value );
+		$this->assertSame( 1, $result->failures );
+	}
 }

@@ -16,6 +16,7 @@ final class SerializedWalker {
 	private string $data;
 	private int $pos;
 	private int $length;
+	private bool $escaped = false;
 
 	/**
 	 * @var callable(string): string
@@ -27,9 +28,10 @@ final class SerializedWalker {
 	}
 
 	public function rebuild( string $data ): string {
-		$this->data   = $data;
-		$this->pos    = 0;
-		$this->length = strlen( $data );
+		$this->data    = $data;
+		$this->pos     = 0;
+		$this->length  = strlen( $data );
+		$this->escaped = false;
 
 		$out = $this->value( true );
 
@@ -98,6 +100,10 @@ final class SerializedWalker {
 		throw new UnexpectedValueException( 'Unknown serialized token.' );
 	}
 
+	public function saw_escaped_string(): bool {
+		return $this->escaped;
+	}
+
 	private function members( int $count, bool $replace ): string {
 		$out = '';
 		for ( $i = 0; $i < $count; $i++ ) {
@@ -120,7 +126,8 @@ final class SerializedWalker {
 	}
 
 	private function escaped_string(): string {
-		$start = $this->pos;
+		$start         = $this->pos;
+		$this->escaped = true;
 		$this->expect( 'S:' );
 		$chars = $this->integer();
 		$this->expect( ':"' );

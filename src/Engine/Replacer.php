@@ -135,6 +135,9 @@ final class Replacer {
 
 		try {
 			$rebuilt = $walker->rebuild( $trimmed );
+			if ( $walker->saw_escaped_string() ) {
+				throw new UnexpectedValueException( 'S: strings carry character counts that are not rebuilt.' );
+			}
 		} catch ( UnexpectedValueException $e ) {
 			$this->replacements = $before_replacements;
 			$this->failures     = $before_failures;
@@ -164,8 +167,8 @@ final class Replacer {
 		$out    = $this->regex ? $this->replace_plain( $value ) : $this->replace_json_text( $value );
 
 		if ( $out !== $value ) {
-			json_decode( $out );
-			if ( JSON_ERROR_NONE !== json_last_error() ) {
+			$after = json_decode( $out );
+			if ( JSON_ERROR_NONE !== json_last_error() || ! self::serialized_leaves_survive( $decoded, $after ) ) {
 				$this->replacements = $before;
 				++$this->failures;
 				return $value;
@@ -173,6 +176,56 @@ final class Replacer {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * A text replace can't fix byte lengths, so every string leaf that
+	 * unserialized before must still unserialize, leaf by leaf in order.
+	 *
+	 * @param mixed $before
+	 * @param mixed $after
+	 */
+	private static function serialized_leaves_survive( $before, $after ): bool {
+		$old = self::string_leaves( $before );
+		$new = self::string_leaves( $after );
+		if ( count( $old ) !== count( $new ) ) {
+			return false;
+		}
+		foreach ( $old as $i => $leaf ) {
+			if ( $leaf !== $new[ $i ] && self::unserializes( $leaf ) && ! self::unserializes( $new[ $i ] ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * @param mixed $node
+	 * @return string[]
+	 */
+	private static function string_leaves( $node ): array {
+		if ( is_string( $node ) ) {
+			return array( $node );
+		}
+		if ( is_object( $node ) ) {
+			$node = get_object_vars( $node );
+		}
+		$out = array();
+		if ( is_array( $node ) ) {
+			foreach ( $node as $child ) {
+				array_push( $out, ...self::string_leaves( $child ) );
+			}
+		}
+		return $out;
+	}
+
+	private static function unserializes( string $value ): bool {
+		$trimmed = trim( $value );
+		if ( ! self::looks_serialized( $trimmed ) ) {
+			return false;
+		}
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.PHP.DiscouragedPHPFunctions.serialize_unserialize
+		return 'b:0;' === $trimmed || false !== @unserialize( $trimmed, array( 'allowed_classes' => false ) );
 	}
 
 	/**
@@ -345,10 +398,11 @@ final class Replacer {
 		$token = $data[0];
 		switch ( $token ) {
 			case 's':
+			case 'S':
 				if ( '"' !== substr( $data, -2, 1 ) ) {
 					return false;
 				}
-				return (bool) preg_match( '/^s:[0-9]+:/s', $data );
+				return (bool) preg_match( "/^{$token}:[0-9]+:/s", $data );
 			case 'a':
 			case 'O':
 			case 'C':
