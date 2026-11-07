@@ -4,7 +4,7 @@ Tags: search replace, database, migration, serialized, multisite
 Requires at least: 6.2
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.2.1
+Stable tag: 0.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -68,6 +68,9 @@ SQL files with CREATE TABLE, DROP TABLE, INSERT ... VALUES, LOCK/UNLOCK TABLES a
 It uses the same engine as the admin screen, so it also replaces JSON-escaped values, reports broken serialized values it skipped, can load a saved profile with `--profile`, and records the run in the admin history so you can view the diff.
 
 == Changelog ==
+
+= 0.3.0 =
+* Other plugins can run previews, replacements and backups through Swapline's API.
 
 = 0.2.1 =
 * Backups and imports keep columns whose default is an expression, such as CURRENT_TIMESTAMP.

@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Swapline
  * Description:       Search and replace across your database tables with serialized data and JSON handled safely, plus backups and safe imports for moving a site.
- * Version:           0.2.1
+ * Version:           0.3.0
  * Requires at least: 6.2
  * Requires PHP:      8.0
  * Author:            Jean Galea
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SWAPLINE_VERSION', '0.2.1' );
+define( 'SWAPLINE_VERSION', '0.3.0' );
 define( 'SWAPLINE_FILE', __FILE__ );
 
 spl_autoload_register(

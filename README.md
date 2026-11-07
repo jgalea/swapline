@@ -32,6 +32,10 @@ The screen is under Tools > Search & Replace, or Settings > Search & Replace in 
 - WordPress 6.2 or later
 - PHP 8.0 or later
 
+## For other plugins
+
+`Swapline\Api::preview( $input )` runs a dry run and returns counts per table with a few before/after samples. `Swapline\Api::replace( $input, $backup = true )` backs up the affected tables and replaces. `Swapline\Api::backup( $tables )` and `Swapline\Api::restore( $name )` write and load Swapline backups. `$input` takes the same keys as the WP-CLI command: `search`, `replace`, `tables`, `case_insensitive`, `regex`, `skip_guid`. The calls run in the current request and do no capability checks.
+
 ## Development
 
 ```
