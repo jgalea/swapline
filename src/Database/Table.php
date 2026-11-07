@@ -185,17 +185,7 @@ final class Table {
 			$args[] = $value;
 		}
 
-		$where = array();
-		foreach ( $this->identify( $row ) as $column => $value ) {
-			if ( null === $value ) {
-				$where[] = Tables::quote( $column ) . ' IS NULL';
-				continue;
-			}
-			$where[] = Tables::quote( $column ) . ' = %s';
-			$args[]  = $value;
-		}
-
-		$sql = 'UPDATE ' . Tables::quote( $this->name ) . ' SET ' . implode( ', ', $set ) . ' WHERE ' . implode( ' AND ', $where );
+		$sql = 'UPDATE ' . Tables::quote( $this->name ) . ' SET ' . implode( ', ', $set ) . ' WHERE ' . self::where( $this->identify( $row ), $args );
 		if ( self::KEY_NONE === $this->key_type ) {
 			$sql .= ' LIMIT 1';
 		}
@@ -203,6 +193,94 @@ final class Table {
 		$sql    = $wpdb->prepare( self::escape_percent_outside_placeholders( $sql ), $args ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- identifiers are validated and quoted, values are placeholders.
 		$result = $wpdb->query( $sql ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- prepared on the line above.
 		return false !== $result && $result > 0;
+	}
+
+	/**
+	 * The value of one cell in the row a recorded key points at, null when the row is gone. In tables
+	 * without a usable key the row is matched on every column except the one being read.
+	 *
+	 * @param array<string, string|null> $key As returned by identify().
+	 */
+	public function read_cell( array $key, string $column ): ?string {
+		global $wpdb;
+
+		$columns = $this->match( $key, $column );
+		if ( null === $columns || ! isset( $this->columns[ $column ] ) ) {
+			return null;
+		}
+		$args = array();
+		$sql  = 'SELECT ' . Tables::quote( $column ) . ' FROM ' . Tables::quote( $this->name ) . ' WHERE ' . self::where( $columns, $args ) . ' LIMIT 1';
+		$row  = $wpdb->get_row( $wpdb->prepare( self::escape_percent_outside_placeholders( $sql ), $args ), ARRAY_N ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- identifiers are validated and quoted, values are placeholders.
+		return is_array( $row ) && null !== $row[0] ? (string) $row[0] : null;
+	}
+
+	/**
+	 * @param array<string, string|null> $key
+	 * @return array<string, string|null>|null
+	 */
+	private function match( array $key, string $column ): ?array {
+		if ( self::KEY_NONE === $this->key_type ) {
+			$match = array_diff_key( $key, array( $column => true ) );
+		} else {
+			$match = array_intersect_key( $key, array_flip( $this->key ) );
+			if ( count( $match ) !== count( $this->key ) ) {
+				return null;
+			}
+		}
+		return array() === $match ? null : $match;
+	}
+
+	/**
+	 * Sets one cell in the row a recorded key points at. In tables without a usable key the key is the
+	 * full original row, matched on every column except the one being written.
+	 *
+	 * @param array<string, string|null> $key As returned by identify().
+	 * @return bool True when the row holds the value afterwards.
+	 */
+	public function write_cell( array $key, string $column, string $value ): bool {
+		global $wpdb;
+
+		$columns = $this->match( $key, $column );
+		if ( null === $columns || ! in_array( $column, $this->text_columns( false ), true ) ) {
+			return false;
+		}
+
+		$args  = array( $value );
+		$where = self::where( $columns, $args );
+		$sql   = 'UPDATE ' . Tables::quote( $this->name ) . ' SET ' . Tables::quote( $column ) . ' = %s WHERE ' . $where;
+		if ( self::KEY_NONE === $this->key_type ) {
+			$sql .= ' LIMIT 1';
+		}
+		$result = $wpdb->query( $wpdb->prepare( self::escape_percent_outside_placeholders( $sql ), $args ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- identifiers are validated and quoted, values are placeholders.
+		if ( false === $result ) {
+			return false;
+		}
+		if ( $result > 0 ) {
+			return true;
+		}
+
+		$args   = array();
+		$where  = self::where( $columns, $args );
+		$args[] = $value;
+		$sql    = 'SELECT COUNT(*) FROM ' . Tables::quote( $this->name ) . ' WHERE ' . $where . ' AND BINARY ' . Tables::quote( $column ) . ' = %s';
+		return (int) $wpdb->get_var( $wpdb->prepare( self::escape_percent_outside_placeholders( $sql ), $args ) ) > 0; // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- identifiers are validated and quoted, values are placeholders.
+	}
+
+	/**
+	 * @param array<string, string|null> $columns Column => value; null matches NULL.
+	 * @param array<int, string>         $args    Placeholder values, appended to.
+	 */
+	private static function where( array $columns, array &$args ): string {
+		$where = array();
+		foreach ( $columns as $column => $value ) {
+			if ( null === $value ) {
+				$where[] = Tables::quote( (string) $column ) . ' IS NULL';
+				continue;
+			}
+			$where[] = Tables::quote( (string) $column ) . ' = %s';
+			$args[]  = (string) $value;
+		}
+		return implode( ' AND ', $where );
 	}
 
 	private static function escape_percent( string $sql ): string {

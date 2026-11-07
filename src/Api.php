@@ -4,6 +4,7 @@ namespace Swapline;
 
 use Swapline\Backup\Exporter;
 use Swapline\Backup\Storage;
+use Swapline\Database\Table;
 use Swapline\Database\Tables;
 use Swapline\Import\Importer;
 use Swapline\Run\Config;
@@ -141,6 +142,103 @@ final class Api {
 		Importer::clear();
 
 		return null === $job['error'] ? true : new WP_Error( 'swapline_restore', (string) $job['error'] );
+	}
+
+	/**
+	 * The cells a run changed, from the run history. Complete is false when the history doesn't hold every
+	 * changed cell in full: the run was pruned, it changed more cells than are recorded, or a value was too
+	 * long to keep whole.
+	 *
+	 * @return array{complete: bool, cells: array<int, array{table: string, row: array<string, string|null>, column: string, before: string, after: string}>}
+	 */
+	public static function changes( string $run_id ): array {
+		History::maybe_install();
+		$run      = History::find( $run_id );
+		$complete = null !== $run && empty( $run['truncated'] );
+		$cells    = array();
+		$page     = 1;
+		do {
+			$batch = History::changes( $run_id, $page, 500 )['items'];
+			$count = count( $batch );
+			foreach ( $batch as $item ) {
+				$complete = $complete && empty( $item['truncated'] );
+				$cells[]  = array(
+					'table'  => (string) $item['table_name'],
+					'row'    => (array) json_decode( (string) $item['row_key'], true ),
+					'column' => (string) $item['column_name'],
+					'before' => (string) $item['old_value'],
+					'after'  => (string) $item['new_value'],
+				);
+			}
+			++$page;
+		} while ( 500 === $count );
+
+		$changed = null === $run ? -1 : (int) ( $run['totals']['cells_changed'] ?? -1 );
+
+		return array(
+			'complete' => $complete && count( $cells ) === $changed,
+			'cells'    => $cells,
+		);
+	}
+
+	/**
+	 * The current value of each cell, addressed as in changes(): null where the row is gone.
+	 *
+	 * @param array<int, array{table: string, row: array<string, string|null>, column: string}> $cells
+	 * @return array<int, string|null>|WP_Error In the order given.
+	 */
+	public static function read_cells( array $cells ) {
+		$tables = self::tables_for( $cells );
+		if ( is_wp_error( $tables ) ) {
+			return $tables;
+		}
+		$out = array();
+		foreach ( $cells as $cell ) {
+			$out[] = is_array( $cell['row'] ?? null ) ? $tables[ (string) $cell['table'] ]->read_cell( $cell['row'], (string) $cell['column'] ) : null;
+		}
+		return $out;
+	}
+
+	/**
+	 * Writes single cells, each in the row its recorded key points at, as returned by changes(). Writing
+	 * the before values of a run's cells puts exactly those cells back and leaves every other row alone.
+	 *
+	 * @param array<int, array{table: string, row: array<string, string|null>, column: string, value: string}> $cells
+	 * @return array{written: int, missing: int}|WP_Error Missing counts cells whose row is gone or can't be addressed.
+	 */
+	public static function write_cells( array $cells ) {
+		$tables = self::tables_for( $cells );
+		if ( is_wp_error( $tables ) ) {
+			return $tables;
+		}
+		$out = array(
+			'written' => 0,
+			'missing' => 0,
+		);
+		foreach ( $cells as $cell ) {
+			$ok = is_array( $cell['row'] ?? null ) && $tables[ (string) $cell['table'] ]->write_cell( $cell['row'], (string) $cell['column'], (string) ( $cell['value'] ?? '' ) );
+			++$out[ $ok ? 'written' : 'missing' ];
+		}
+		return $out;
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $cells
+	 * @return array<string, Table>|WP_Error
+	 */
+	private static function tables_for( array $cells ) {
+		$names = array();
+		foreach ( $cells as $cell ) {
+			$names[ (string) ( $cell['table'] ?? '' ) ] = true;
+		}
+		if ( array() !== $names && null === Tables::validate( array_map( 'strval', array_keys( $names ) ) ) ) {
+			return new WP_Error( 'swapline_unknown_table', __( 'One or more selected tables do not exist.', 'swapline' ) );
+		}
+		$tables = array();
+		foreach ( array_keys( $names ) as $name ) {
+			$tables[ (string) $name ] = new Table( (string) $name );
+		}
+		return $tables;
 	}
 
 	/**
