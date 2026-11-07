@@ -28,7 +28,12 @@ final class Plugin {
 	}
 
 	public static function capability(): string {
-		return is_multisite() ? 'manage_network' : 'manage_options';
+		/**
+		 * The capability needed to use Swapline.
+		 *
+		 * @param string $capability manage_network on multisite, otherwise manage_options.
+		 */
+		return (string) apply_filters( 'swapline_capability', is_multisite() ? 'manage_network' : 'manage_options' );
 	}
 
 	/**

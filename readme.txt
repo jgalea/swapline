@@ -43,6 +43,10 @@ Swapline finds and replaces text in your database tables. It's built for moving 
 
 Yes. A live run writes to the database and can't be undone. Do a dry run first and check the diff.
 
+= Can I let other roles use Swapline? =
+
+Yes. Return a different capability from the `swapline_capability` filter, for example `add_filter( 'swapline_capability', fn() => 'edit_others_posts' );`. It controls the admin page, the backups and the API access that other plugins get. Search and replace changes the whole database, so choose a capability you trust.
+
 = Why is the guid column skipped? =
 
 WordPress uses post GUIDs as permanent identifiers, and feed readers rely on them not changing. Untick the option if you really need to change them.
@@ -71,6 +75,7 @@ It uses the same engine as the admin screen, so it also replaces JSON-escaped va
 
 = 0.3.0 =
 * Other plugins can run previews, replacements and backups through Swapline's API.
+* The `swapline_capability` filter sets which capability can use Swapline.
 
 = 0.2.1 =
 * Backups and imports keep columns whose default is an expression, such as CURRENT_TIMESTAMP.
