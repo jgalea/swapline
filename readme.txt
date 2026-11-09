@@ -1,5 +1,5 @@
 === Swapline ===
-Contributors: jeangalea
+Contributors: rebelcode, jeangalea
 Tags: search replace, database, migration, serialized, multisite
 Requires at least: 6.2
 Tested up to: 7.1

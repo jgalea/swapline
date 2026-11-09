@@ -1,5 +1,5 @@
 {
-    "name": "jgalea/swapline",
+    "name": "rebelcode/swapline",
     "description": "Search and replace across WordPress database tables, with serialized data, JSON, dry runs and per-cell diffs.",
     "type": "wordpress-plugin",
     "license": "GPL-2.0-or-later",
