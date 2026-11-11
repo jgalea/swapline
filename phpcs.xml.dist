@@ -5,6 +5,7 @@
 	<file>src</file>
 	<file>tests</file>
 	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/tests/Support/*</exclude-pattern>
 	<arg name="extensions" value="php"/>
 	<arg value="ps"/>
 	<config name="testVersion" value="8.0-"/>
