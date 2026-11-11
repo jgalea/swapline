@@ -200,6 +200,40 @@ final class CapabilityTest extends DbTestCase {
 		$this->assertNotNull( Ajax::job_summary( $job ) );
 	}
 
+	public function test_a_delegated_role_cannot_step_or_cancel_a_job_on_protected_tables(): void {
+		$job          = $this->admin_job( array( 'wp_options' ) );
+		$_POST['job'] = $job['id'];
+
+		$this->assertSame( 403, $this->refused( array( Ajax::class, 'handle_step' ) )->status );
+		$this->assertSame( 403, $this->refused( array( Ajax::class, 'handle_cancel' ) )->status );
+		$this->assertSame( $job['id'], Runner::current()['id'], 'The job is untouched.' );
+	}
+
+	public function test_a_delegated_role_cannot_step_or_cancel_another_users_job(): void {
+		$job          = $this->admin_job( array( 'wp_posts' ) );
+		$_POST['job'] = $job['id'];
+
+		$this->assertSame( 403, $this->refused( array( Ajax::class, 'handle_step' ) )->status );
+		$this->assertSame( 403, $this->refused( array( Ajax::class, 'handle_cancel' ) )->status );
+		$this->assertSame( $job['id'], Runner::current()['id'] );
+	}
+
+	public function test_the_owner_can_step_their_own_job(): void {
+		$job                              = $this->admin_job( array( 'wp_posts' ) );
+		$GLOBALS['swapline_test']['user'] = 1;
+		$_POST['job']                     = $job['id'];
+
+		$this->assertTrue( $this->refused( array( Ajax::class, 'handle_step' ) )->success );
+	}
+
+	public function test_an_administrator_can_cancel_another_users_job(): void {
+		$job                                = $this->admin_job( array( 'wp_options' ) );
+		$GLOBALS['swapline_test']['caps'][] = 'manage_options';
+		$_POST['job']                       = $job['id'];
+
+		$this->assertTrue( $this->refused( array( Ajax::class, 'handle_cancel' ) )->success );
+	}
+
 	public function test_protected_tables_are_the_accounts_tables(): void {
 		$this->assertSame( array( 'wp_users', 'wp_options', 'wp_usermeta' ), Plugin::protected_tables( array( 'wp_posts', 'wp_users', 'wp_options', 'wp_usermeta' ) ) );
 		$this->assertSame( array(), Plugin::protected_tables( array( 'wp_posts', 'wp_postmeta' ) ) );

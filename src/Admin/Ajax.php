@@ -35,6 +35,18 @@ final class Ajax {
 	}
 
 	/**
+	 * @param array<string, mixed> $job
+	 */
+	private static function guard_job( array $job ): void {
+		if ( get_current_user_id() !== (int) $job['user_id'] && ! current_user_can( Plugin::database_capability() ) ) {
+			wp_send_json_error( array( 'message' => __( 'This run belongs to another user.', 'swapline' ) ), 403 );
+		}
+		if ( ! Plugin::can_see_tables( (array) $job['config']['tables'] ) ) {
+			wp_send_json_error( array( 'message' => __( 'Only an administrator can run on the users, usermeta and options tables.', 'swapline' ) ), 403 );
+		}
+	}
+
+	/**
 	 * @return array<string, mixed>
 	 */
 	private static function config_input(): array {
@@ -89,6 +101,8 @@ final class Ajax {
 			wp_send_json_error( array( 'message' => __( 'This run is no longer active. Another run may have replaced it.', 'swapline' ) ), 409 );
 		}
 
+		self::guard_job( $job );
+
 		$job = Runner::step( $job );
 
 		if ( $job['done'] ) {
@@ -138,6 +152,8 @@ final class Ajax {
 		if ( null === $job || self::post_string( 'job' ) !== $job['id'] ) {
 			wp_send_json_success( array( 'run' => null ) );
 		}
+
+		self::guard_job( $job );
 
 		Runner::clear();
 		wp_send_json_success( array( 'run' => Runner::finish( $job, true ) ) );
