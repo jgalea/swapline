@@ -37,7 +37,7 @@ function swapline_test_reset(): void {
 swapline_test_reset();
 
 function __( $text ) {
-	return $text;
+	return $GLOBALS['swapline_test']['translations'][ $text ] ?? $text;
 }
 function esc_html__( $text ) {
 	return $text;
