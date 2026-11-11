@@ -76,7 +76,7 @@ final class Runner {
 
 		$columns = $table->text_columns( (bool) $config['skip_guid'] );
 		$limit   = (int) $config['page_size'];
-		$rows    = array() === $columns ? array() : $table->fetch( $columns, Table::KEY_NONE === $table->key_type ? $job['offset'] : $job['cursor'], $limit );
+		$rows    = array() === $columns ? array() : $table->fetch( $columns, Table::KEY_NONE === $table->key_type ? $job['offset'] : $job['cursor'], $limit, (bool) $config['dry_run'] );
 
 		$engine = new Replacer( (string) $config['search'], (string) $config['replace'], (bool) $config['case_insensitive'], (bool) $config['regex'] );
 		$counts = $job['tables'][ $name ];

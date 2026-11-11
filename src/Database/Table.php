@@ -119,15 +119,18 @@ final class Table {
 	 *
 	 * @param string[]                  $columns
 	 * @param array<int, string>|int|null $cursor
+	 * @param bool                      $stable Order keyless tables by every column so offsets are repeatable. Only for
+	 *                                          reads: a write moves a row in that order, so live runs keep the table's own order.
 	 * @return array<int, array<string, string|null>>
 	 */
-	public function fetch( array $columns, $cursor, int $limit ): array {
+	public function fetch( array $columns, $cursor, int $limit, bool $stable = false ): array {
 		global $wpdb;
 
 		$table = Tables::quote( $this->name );
 
 		if ( self::KEY_NONE === $this->key_type ) {
-			return (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM %i LIMIT %d, %d', $this->name, (int) $cursor, $limit ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- batched read of live rows.
+			$order = $stable ? ' ORDER BY ' . implode( ', ', array_map( array( self::class, 'ident' ), array_keys( $this->columns ) ) ) : '';
+			return (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM %i' . $order . ' LIMIT %d, %d', $this->name, (int) $cursor, $limit ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- batched read of live rows; identifiers are quoted.
 		}
 
 		$select = implode( ', ', array_map( array( Tables::class, 'quote' ), array_unique( array_merge( $this->key, $columns ) ) ) );
@@ -162,11 +165,12 @@ final class Table {
 
 	/**
 	 * @param array<string, string|null> $row Original row as read.
-	 * @return array<string, string|null> Key column => value, or every column for keyless tables.
+	 * @return array<string, string|null> Key column => value, or every column for keyless tables except float and
+	 *                                    double ones, whose stored value never equals the decimal text MySQL returned.
 	 */
 	public function identify( array $row ): array {
 		if ( self::KEY_NONE === $this->key_type ) {
-			return $row;
+			return array_diff_key( $row, array_filter( $this->columns, static fn( string $type ): bool => 1 === preg_match( '/^(?:float|double|real)/', $type ) ) );
 		}
 		return array_intersect_key( $row, array_flip( $this->key ) );
 	}

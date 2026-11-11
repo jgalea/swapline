@@ -135,7 +135,7 @@ final class Exporter {
 
 			$columns = array_values( array_diff( array_keys( $table->columns ), $table->generated ) );
 			$cursor  = Table::KEY_NONE === $table->key_type ? $job['offset'] : $job['cursor'];
-			$rows    = array() === $columns ? array() : $table->fetch( $columns, $cursor, self::PAGE_SIZE );
+			$rows    = array() === $columns ? array() : $table->fetch( $columns, $cursor, self::PAGE_SIZE, true );
 			$text    = null === $engine ? array() : $table->text_columns( (bool) $job['replace']['skip_guid'] );
 			$kinds   = array();
 			foreach ( $columns as $column ) {
