@@ -57,7 +57,9 @@ final class Plugin {
 		$exact   = array( $wpdb->base_prefix . 'users', $wpdb->base_prefix . 'usermeta' );
 		$options = '/^' . preg_quote( $wpdb->base_prefix, '/' ) . '(?:[0-9]+_)?options$/';
 		if ( is_multisite() ) {
-			$exact[] = $wpdb->base_prefix . 'sitemeta';
+			foreach ( array( 'blogs', 'blogmeta', 'site', 'sitemeta', 'signups', 'registration_log' ) as $network_table ) {
+				$exact[] = $wpdb->base_prefix . $network_table;
+			}
 		}
 
 		return array_values(

@@ -240,4 +240,13 @@ final class CapabilityTest extends DbTestCase {
 		$GLOBALS['swapline_test']['multi'] = true;
 		$this->assertSame( array( 'wp_3_options', 'wp_sitemeta' ), Plugin::protected_tables( array( 'wp_3_options', 'wp_3_posts', 'wp_sitemeta' ) ) );
 	}
+
+	public function test_the_network_tables_are_protected_on_multisite_only(): void {
+		$network = array( 'wp_blogs', 'wp_blogmeta', 'wp_site', 'wp_sitemeta', 'wp_signups', 'wp_registration_log' );
+
+		$this->assertSame( array(), Plugin::protected_tables( $network ) );
+		$GLOBALS['swapline_test']['multi'] = true;
+		$this->assertSame( $network, Plugin::protected_tables( $network ) );
+		$this->assertSame( array( 'wp_2_options' ), Plugin::protected_tables( array( 'wp_2_posts', 'wp_2_options', 'wp_2_postmeta' ) ) );
+	}
 }
