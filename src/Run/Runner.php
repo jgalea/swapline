@@ -121,7 +121,7 @@ final class Runner {
 				if ( $written ) {
 					foreach ( $changes as $column => $new ) {
 						++$counts['cells_changed'];
-						if ( $job['recorded'] < $cap && History::record( $job['id'], $name, $table->identify( $row ), $column, (string) $row[ $column ], $new, $replacements[ $column ] ) ) {
+						if ( $job['recorded'] < $cap && ! History::is_sensitive( $name, $row, $column ) && History::record( $job['id'], $name, $table->identify( $row ), $column, (string) $row[ $column ], $new, $replacements[ $column ] ) ) {
 							++$job['recorded'];
 						}
 					}

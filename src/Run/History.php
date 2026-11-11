@@ -63,6 +63,19 @@ final class History {
 	}
 
 	/**
+	 * Cells holding credentials are changed but never copied into the history.
+	 *
+	 * @param array<string, string|null> $row
+	 */
+	public static function is_sensitive( string $table, array $row, string $column ): bool {
+		$columns = (array) apply_filters( 'swapline_sensitive_columns', array( 'user_pass', 'user_activation_key' ) );
+		if ( in_array( $column, $columns, true ) ) {
+			return true;
+		}
+		return 'session_tokens' === ( $row['meta_key'] ?? null ) && 'meta_value' === $column && str_ends_with( $table, 'usermeta' );
+	}
+
+	/**
 	 * @return array<int, array<string, mixed>>
 	 */
 	public static function runs(): array {

@@ -83,4 +83,57 @@ final class RunnerTest extends DbTestCase {
 		$this->assertSame( 'http://old.test', $this->rows( 'wp_posts' )[0]['post_content'] );
 		$this->assertSame( 1, Runner::finish( $job )['totals']['cells_changed'] );
 	}
+
+	public function test_credentials_are_changed_but_not_copied_into_the_history(): void {
+		$this->db->exec_sql( 'CREATE TABLE wp_users (ID INTEGER PRIMARY KEY, user_login TEXT, user_pass TEXT)' );
+		$this->db->exec_sql( 'CREATE TABLE wp_usermeta (umeta_id INTEGER PRIMARY KEY, user_id INTEGER, meta_key TEXT, meta_value TEXT)' );
+		$this->insert(
+			'wp_users',
+			array(
+				'ID'         => 1,
+				'user_login' => 'old-login',
+				'user_pass'  => 'old-hash',
+			)
+		);
+		$this->insert(
+			'wp_usermeta',
+			array(
+				'umeta_id'   => 1,
+				'user_id'    => 1,
+				'meta_key'   => 'session_tokens',
+				'meta_value' => 'old-token',
+			)
+		);
+		$this->insert(
+			'wp_usermeta',
+			array(
+				'umeta_id'   => 2,
+				'user_id'    => 1,
+				'meta_key'   => 'nickname',
+				'meta_value' => 'old-nick',
+			)
+		);
+
+		$job = $this->run_all(
+			Runner::start(
+				$this->config(
+					array(
+						'search'  => 'old',
+						'replace' => 'new',
+						'tables'  => array( 'wp_users', 'wp_usermeta' ),
+					)
+				),
+				'admin'
+			)
+		);
+		$run = Runner::finish( $job );
+
+		$this->assertSame( 'new-hash', $this->rows( 'wp_users' )[0]['user_pass'] );
+		$this->assertSame( 'new-token', $this->rows( 'wp_usermeta' )[0]['meta_value'] );
+		$this->assertSame( 4, $run['totals']['cells_changed'] );
+		$kept = History::changes( $run['id'], 1, 10 )['items'];
+		$this->assertEqualsCanonicalizing( array( 'user_login', 'meta_value' ), array_column( $kept, 'column_name' ) );
+		$this->assertSame( array( 'old-nick' ), array_column( array_filter( $kept, fn( $i ) => 'meta_value' === $i['column_name'] ), 'old_value' ) );
+		$this->assertTrue( $run['truncated'] );
+	}
 }
