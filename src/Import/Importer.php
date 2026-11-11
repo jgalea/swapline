@@ -27,8 +27,6 @@ final class Importer {
 
 	public const JOB_OPTION = 'swapline_import_job';
 
-	private const TEMP   = 'swapline_tmp_';
-	private const OLD    = 'swapline_old_';
 	private const CHUNK  = 1048576;
 	private const LISTED = 20;
 
@@ -227,10 +225,10 @@ final class Importer {
 	public static function drop_leftovers(): void {
 		global $wpdb;
 
-		foreach ( array( self::TEMP, self::OLD ) as $prefix ) {
-			$names = (array) $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $prefix ) . '%' ) );
+		foreach ( array( 'tmp', 'old' ) as $kind ) {
+			$names = (array) $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( Tables::scratch_prefix( $kind ) ) . '%' ) );
 			foreach ( $names as $name ) {
-				if ( preg_match( '/^' . $prefix . '[a-f0-9]{8}_\d+$/', $name ) ) {
+				if ( Tables::is_scratch( (string) $name ) ) {
 					$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- name matched against the plugin's own pattern.
 				}
 			}
@@ -310,7 +308,7 @@ final class Importer {
 						/* translators: %s: table name. */
 						$problem = sprintf( __( 'The file creates %s more than once.', 'swapline' ), $statement->table );
 					} else {
-						$job['tables'][ $statement->table ] = self::TEMP . $job['id'] . '_' . count( $job['tables'] );
+						$job['tables'][ $statement->table ] = Tables::scratch_prefix( 'tmp' ) . $job['id'] . '_' . count( $job['tables'] );
 					}
 				} elseif ( Statement::INSERT === $statement->type && $statement->table !== $own && ! isset( $job['tables'][ $statement->table ] ) ) {
 					/* translators: %s: table name. */
@@ -350,7 +348,7 @@ final class Importer {
 		}
 
 		foreach ( $job['tables'] as $table => $temp ) {
-			if ( strlen( $table ) > 64 ) {
+			if ( strlen( $table ) > 64 || strlen( $temp ) > 64 ) {
 				/* translators: %s: table name. */
 				return self::fail( $job, sprintf( __( 'The table name %s is too long.', 'swapline' ), $table ) );
 			}
@@ -523,7 +521,7 @@ final class Importer {
 		$old     = array();
 		foreach ( array_keys( $job['tables'] ) as $n => $table ) {
 			if ( self::exists( $table ) ) {
-				$old[]     = self::OLD . $job['id'] . '_' . $n;
+				$old[]     = Tables::scratch_prefix( 'old' ) . $job['id'] . '_' . $n;
 				$renames[] = Tables::quote( $table ) . ' TO ' . Tables::quote( end( $old ) );
 			}
 			$renames[] = Tables::quote( $job['tables'][ $table ] ) . ' TO ' . Tables::quote( $table );

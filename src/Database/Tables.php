@@ -28,7 +28,7 @@ final class Tables {
 
 		foreach ( (array) $rows as $row ) {
 			$name = (string) $row['Name'];
-			if ( empty( $row['Engine'] ) || in_array( $name, $excluded, true ) ) {
+			if ( empty( $row['Engine'] ) || in_array( $name, $excluded, true ) || self::is_scratch( $name ) ) {
 				continue;
 			}
 			$tables[ $name ] = array(
@@ -66,6 +66,20 @@ final class Tables {
 		}
 
 		return array_values( $valid );
+	}
+
+	/**
+	 * Start of the names an import gives its temporary and replaced tables. It carries this site's prefix, so
+	 * two installs in one database never touch each other's.
+	 */
+	public static function scratch_prefix( string $kind ): string {
+		global $wpdb;
+		return $wpdb->base_prefix . 'swapline_' . $kind . '_';
+	}
+
+	public static function is_scratch( string $name ): bool {
+		global $wpdb;
+		return 1 === preg_match( '/^' . preg_quote( $wpdb->base_prefix, '/' ) . 'swapline_(?:tmp|old)_[a-f0-9]{8}_\d+$/', $name );
 	}
 
 	public static function quote( string $identifier ): string {
