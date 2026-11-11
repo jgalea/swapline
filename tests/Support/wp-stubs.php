@@ -121,3 +121,9 @@ function wp_cache_flush() {
 function untrailingslashit( $value ) {
 	return rtrim( $value, '/\\' );
 }
+function wp_die( $message = '', $title = '', $args = array() ) {
+	throw new Swapline_Test_Json_Exit( false, $message, (int) ( $args['response'] ?? 500 ) );
+}
+function esc_html( $text ) {
+	return $text;
+}

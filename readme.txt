@@ -45,7 +45,7 @@ Yes. A live run writes to the database and can't be undone. Do a dry run first a
 
 = Can I let other roles use Swapline? =
 
-Yes. Return a different capability from the `swapline_capability` filter, for example `add_filter( 'swapline_capability', fn() => 'edit_others_posts' );`. It controls the admin page, the backups and the API access that other plugins get. Search and replace changes the whole database, so choose a capability you trust.
+Yes. Return a different capability from the `swapline_capability` filter, for example `add_filter( 'swapline_capability', fn() => 'manage_woocommerce' );`. It controls the Search & Replace and History screens. Backups, downloads, imports, restores and runs on the users tables always need `manage_options` (`manage_network` on multisite), because they expose password hashes and can create administrators. Anyone you give the capability to can rewrite your posts, options and settings, so pick a role you'd trust with the database.
 
 = Why is the guid column skipped? =
 

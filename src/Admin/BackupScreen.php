@@ -4,6 +4,7 @@ namespace Swapline\Admin;
 
 use Swapline\Backup\Storage;
 use Swapline\Database\Tables;
+use Swapline\Plugin;
 use Swapline\Run\Config;
 
 defined( 'ABSPATH' ) || exit;
@@ -23,6 +24,9 @@ final class BackupScreen {
 	 * @return array<string, array{label: string, render: callable}>
 	 */
 	public static function tabs( array $tabs ): array {
+		if ( ! current_user_can( Plugin::database_capability() ) ) {
+			return $tabs;
+		}
 		$tabs['backup'] = array(
 			'label'  => __( 'Backup', 'swapline' ),
 			'render' => array( self::class, 'render_backup' ),
@@ -35,6 +39,9 @@ final class BackupScreen {
 	}
 
 	public static function enqueue(): void {
+		if ( ! current_user_can( Plugin::database_capability() ) ) {
+			return;
+		}
 		wp_enqueue_script( 'swapline-backup', plugins_url( 'assets/backup.js', SWAPLINE_FILE ), array( 'wp-i18n' ), SWAPLINE_VERSION, true );
 		wp_set_script_translations( 'swapline-backup', 'swapline' );
 

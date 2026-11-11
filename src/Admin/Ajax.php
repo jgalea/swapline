@@ -55,6 +55,10 @@ final class Ajax {
 			wp_send_json_error( array( 'message' => $config->get_error_message() ), 400 );
 		}
 
+		if ( array() !== Plugin::protected_tables( $config['tables'] ) && ! current_user_can( Plugin::database_capability() ) ) {
+			wp_send_json_error( array( 'message' => __( 'Only an administrator can change the users tables.', 'swapline' ) ), 403 );
+		}
+
 		$job = Runner::start( $config, 'admin' );
 		Runner::save( $job );
 

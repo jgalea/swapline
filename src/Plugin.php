@@ -37,6 +37,28 @@ final class Plugin {
 	}
 
 	/**
+	 * The capability for backups, downloads, imports and restores, and for runs on the users tables. It is
+	 * not filterable: anyone who has it can read every password hash or become an administrator.
+	 */
+	public static function database_capability(): string {
+		return is_multisite() ? 'manage_network' : 'manage_options';
+	}
+
+	/**
+	 * @param string[] $tables
+	 * @return string[] The tables that hold accounts and roles.
+	 */
+	public static function protected_tables( array $tables ): array {
+		global $wpdb;
+
+		$protected = array( $wpdb->base_prefix . 'users', $wpdb->base_prefix . 'usermeta' );
+		if ( is_multisite() ) {
+			$protected[] = $wpdb->base_prefix . 'sitemeta';
+		}
+		return array_values( array_intersect( $tables, $protected ) );
+	}
+
+	/**
 	 * @param string[] $links
 	 * @return string[]
 	 */

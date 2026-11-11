@@ -117,7 +117,10 @@ final class Page {
 	}
 
 	public static function render_replace(): void {
-		$tables    = Tables::all();
+		$tables = Tables::all();
+		if ( ! current_user_can( Plugin::database_capability() ) ) {
+			$tables = array_diff_key( $tables, array_flip( Plugin::protected_tables( array_keys( $tables ) ) ) );
+		}
 		$multisite = is_multisite();
 		$sites     = $multisite ? self::site_labels( array_unique( array_column( $tables, 'site' ) ) ) : array();
 		$profiles  = Profiles::all();
