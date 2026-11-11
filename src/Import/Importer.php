@@ -39,6 +39,10 @@ final class Importer {
 	 * @return array<string, mixed>|WP_Error
 	 */
 	public static function start( string $path, bool $owned, ?array $replace, bool $preserve, string $source ) {
+		if ( Tables::uses_sqlite() ) {
+			return new WP_Error( 'swapline_sqlite', __( 'Imports need a MySQL or MariaDB database. This site runs on SQLite.', 'swapline' ) );
+		}
+
 		$previous = self::current();
 		if ( null !== $previous ) {
 			if ( Clock::is_recent( $previous ) && ( 'admin' !== $source || (int) $previous['user_id'] !== get_current_user_id() ) ) {

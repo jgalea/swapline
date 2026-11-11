@@ -5,7 +5,7 @@ namespace Swapline\Tests\Support;
 
 use PDO;
 
-final class FakeWpdb {
+class FakeWpdb {
 
 	public string $base_prefix = 'wp_';
 	public string $prefix      = 'wp_';

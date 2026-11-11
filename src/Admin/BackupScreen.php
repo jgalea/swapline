@@ -166,6 +166,13 @@ final class BackupScreen {
 	}
 
 	public static function render_import(): void {
+		if ( Tables::uses_sqlite() ) {
+			?>
+			<div class="notice notice-info inline"><p><?php esc_html_e( 'Imports and restores need a MySQL or MariaDB database. This site runs on SQLite, where backups can still be created and downloaded.', 'swapline' ); ?></p></div>
+			<?php
+			return;
+		}
+
 		$backups = Storage::backups();
 		?>
 		<div id="swapline-notice" class="notice inline hidden" role="status" aria-live="polite"><p></p></div>

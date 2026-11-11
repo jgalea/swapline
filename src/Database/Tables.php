@@ -70,6 +70,15 @@ final class Tables {
 	}
 
 	/**
+	 * Whether WordPress runs on SQLite (WordPress Studio, Playground), which has no SHOW statements or
+	 * multi-table RENAME, so imports can't run there.
+	 */
+	public static function uses_sqlite(): bool {
+		global $wpdb;
+		return ( defined( 'DB_ENGINE' ) && 'sqlite' === DB_ENGINE ) || false !== stripos( get_class( $wpdb ), 'sqlite' );
+	}
+
+	/**
 	 * Prefixes of other WordPress installs that share this database and begin with this site's prefix,
 	 * such as wp_dev_ next to wp_. An install shows up as a longer prefix that has its own options, posts
 	 * and postmeta tables. On multisite, wp_2_ is a subsite of this network, not another install.
