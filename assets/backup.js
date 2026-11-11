@@ -132,6 +132,73 @@
 
 	window.swaplineRunBackup = ( tables, onProgress ) => runBackup( { scope: 'selected', tables }, onProgress );
 
+	function phaseLabel( phase ) {
+		return (
+			{
+				inflate: __( 'Unpacking the file…', 'swapline' ),
+				scan: __( 'Checking every statement…', 'swapline' ),
+				load: __( 'Loading into temporary tables…', 'swapline' ),
+				replace: __( 'Running the search and replace…', 'swapline' ),
+				swap: __( 'Swapping the tables in…', 'swapline' ),
+			}[ phase ] || ''
+		);
+	}
+
+	let restoring = false;
+
+	/**
+	 * Puts a Swapline backup back, keeping the current user logged in.
+	 */
+	async function restoreBackup( name, created ) {
+		if ( restoring ) {
+			return;
+		}
+		if (
+			! window.confirm(
+				/* translators: %s: backup date. */
+				sprintf( __( 'Restore the backup from %s? The tables in it are replaced with their contents from then, so changes made to them since are lost.', 'swapline' ), created )
+			)
+		) {
+			return;
+		}
+		restoring = true;
+		const ui = progressUi();
+		$$( '[data-restore], .swapline-restore' ).forEach( ( button ) => ( button.disabled = true ) );
+		notice( '', '' );
+		try {
+			let progress = await post( 'import_start', { config: JSON.stringify( { source: 'backup', file: name, preserve: true } ) } );
+			while ( ! progress.done ) {
+				ui.show( progress.percent, phaseLabel( progress.phase ) );
+				progress = await post( 'import_step', { job: progress.id } );
+			}
+			if ( progress.error ) {
+				ui.hide();
+				notice( 'error', progress.error + ' ' + __( 'Your live database was not changed.', 'swapline' ) );
+			} else {
+				ui.show( 100, __( 'Finished.', 'swapline' ) );
+				notice( 'success', __( 'The backup was restored.', 'swapline' ) );
+			}
+		} catch ( e ) {
+			ui.hide();
+			notice( 'error', e.message );
+		}
+		restoring = false;
+		$$( '[data-restore], .swapline-restore' ).forEach( ( button ) => ( button.disabled = false ) );
+	}
+
+	window.addEventListener( 'beforeunload', ( event ) => {
+		if ( restoring ) {
+			event.preventDefault();
+			event.returnValue = '';
+		}
+	} );
+
+	function initRestoreButtons() {
+		$$( '[data-restore]' ).forEach( ( button ) =>
+			button.addEventListener( 'click', () => restoreBackup( button.dataset.restore, button.dataset.created || '' ) )
+		);
+	}
+
 	function renderBackups( rows ) {
 		const list = $( '#swapline-backup-list' );
 		if ( ! list ) {
@@ -156,13 +223,20 @@
 					notice( 'error', e.message );
 				}
 			} );
+			const actions = [ el( 'a', { className: 'button', href: row.download, text: __( 'Download', 'swapline' ) } ) ];
+			if ( row.restore ) {
+				const restore = el( 'button', { type: 'button', className: 'button swapline-restore', text: __( 'Restore', 'swapline' ) } );
+				restore.addEventListener( 'click', () => restoreBackup( row.name, row.created ) );
+				actions.push( restore );
+			}
+			actions.push( remove );
 			list.append(
 				el( 'tr', {}, [
 					el( 'td', {}, [ document.createTextNode( row.created ), el( 'br' ), el( 'code', { className: 'swapline-file', text: row.name } ) ] ),
 					el( 'td', { className: 'num', text: row.size } ),
 					el( 'td', { className: 'num', text: row.tables } ),
 					el( 'td', { text: row.note } ),
-					el( 'td', { className: 'swapline-actions' }, [ el( 'a', { className: 'button', href: row.download, text: __( 'Download', 'swapline' ) } ), remove ] ),
+					el( 'td', { className: 'swapline-actions' }, actions ),
 				] )
 			);
 		} );
@@ -302,18 +376,6 @@
 				event.returnValue = '';
 			}
 		} );
-	}
-
-	function phaseLabel( phase ) {
-		return (
-			{
-				inflate: __( 'Unpacking the file…', 'swapline' ),
-				scan: __( 'Checking every statement…', 'swapline' ),
-				load: __( 'Loading into temporary tables…', 'swapline' ),
-				replace: __( 'Running the search and replace…', 'swapline' ),
-				swap: __( 'Swapping the tables in…', 'swapline' ),
-			}[ phase ] || ''
-		);
 	}
 
 	function renderImport( progress, preserve ) {
@@ -497,4 +559,5 @@
 
 	initBackup();
 	initImport();
+	initRestoreButtons();
 } )();

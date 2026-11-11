@@ -2,6 +2,7 @@
 
 namespace Swapline\Admin;
 
+use Swapline\Backup\Storage;
 use Swapline\Database\Tables;
 use Swapline\Plugin;
 use Swapline\Run\Config;
@@ -269,8 +270,10 @@ final class Page {
 	}
 
 	public static function render_history(): void {
-		$runs = History::runs();
+		$runs    = History::runs();
+		$restore = current_user_can( Plugin::database_capability() ) && ! Tables::uses_sqlite();
 		?>
+		<div id="swapline-notice" class="notice inline hidden" role="status" aria-live="polite"><p></p></div>
 		<p>
 			<?php
 			echo esc_html(
@@ -306,7 +309,7 @@ final class Page {
 				<?php foreach ( $runs as $run ) : ?>
 					<tr>
 						<td>
-							<?php echo esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), (int) $run['started'] ) ); ?>
+							<?php echo esc_html( self::date( (int) $run['started'] ) ); ?>
 							<br><span class="description"><?php echo esc_html( trim( $run['user'] . ' · ' . $run['source'], ' ·' ) ); ?></span>
 						</td>
 						<td><code><?php echo esc_html( self::excerpt( (string) $run['config']['search'] ) ); ?></code></td>
@@ -321,11 +324,20 @@ final class Page {
 						</td>
 						<td class="num"><?php echo esc_html( number_format_i18n( (int) $run['totals']['rows_matched'] ) ); ?></td>
 						<td class="num"><?php echo esc_html( number_format_i18n( (int) $run['totals']['cells_changed'] ) ); ?></td>
-						<td><button type="button" class="button" data-run="<?php echo esc_attr( $run['id'] ); ?>"><?php esc_html_e( 'View changes', 'swapline' ); ?></button></td>
+						<td class="swapline-actions">
+							<button type="button" class="button" data-run="<?php echo esc_attr( $run['id'] ); ?>"><?php esc_html_e( 'View changes', 'swapline' ); ?></button>
+							<?php if ( $restore && ! empty( $run['backup'] ) && null !== Storage::path( (string) $run['backup'], 'backup' ) && is_file( (string) Storage::path( (string) $run['backup'], 'backup' ) ) ) : ?>
+								<button type="button" class="button" data-restore="<?php echo esc_attr( $run['backup'] ); ?>" data-created="<?php echo esc_attr( self::date( (int) $run['started'] ) ); ?>"><?php esc_html_e( 'Restore backup from before this run', 'swapline' ); ?></button>
+							<?php endif; ?>
+						</td>
 					</tr>
 				<?php endforeach; ?>
 			</tbody>
 		</table>
+		</div>
+		<div id="swapline-progress" class="hidden">
+			<progress max="100" value="0"></progress>
+			<p class="swapline-progress-text" aria-live="polite"></p>
 		</div>
 		<script type="application/json" id="swapline-history-data"><?php echo wp_json_encode( $runs, JSON_HEX_TAG | JSON_HEX_AMP ); ?></script>
 		<div id="swapline-results" class="hidden"></div>
@@ -347,6 +359,10 @@ final class Page {
 			$labels[ $id ] = $site ? untrailingslashit( $site->domain . $site->path ) : sprintf( /* translators: %d: site ID. */ __( 'Site %d', 'swapline' ), $id );
 		}
 		return $labels;
+	}
+
+	private static function date( int $time ): string {
+		return wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $time );
 	}
 
 	private static function excerpt( string $value ): string {

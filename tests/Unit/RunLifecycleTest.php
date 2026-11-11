@@ -199,4 +199,18 @@ final class RunLifecycleTest extends DbTestCase {
 		$this->assertSame( 'swapline_busy', $busy->get_error_code() );
 		$this->assertNotNull( Exporter::current() );
 	}
+
+	public function test_the_backup_taken_before_a_run_is_linked_to_its_record(): void {
+		$_POST['backup'] = 'backup-20260101-000000-aabbccddeeff.sql.gz';
+		$id              = $this->start_admin_run();
+
+		$this->assertSame( 'backup-20260101-000000-aabbccddeeff.sql.gz', History::find( $id )['backup'] );
+	}
+
+	public function test_a_backup_name_that_is_not_one_of_ours_is_not_linked(): void {
+		$_POST['backup'] = '../../wp-config.php';
+		$id              = $this->start_admin_run();
+
+		$this->assertNull( History::find( $id )['backup'] );
+	}
 }

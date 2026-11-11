@@ -486,6 +486,7 @@
 				return;
 			}
 			let backupFirst = false;
+			let backupName = '';
 			if ( ! config.dry_run ) {
 				const choice = await confirmLiveRun();
 				if ( ! choice ) {
@@ -519,9 +520,10 @@
 						setRunning( false );
 						return;
 					}
+					backupName = backup.backup.name;
 					notice( 'info', __( 'The selected tables were backed up first. The backup is listed on the Backup tab.', 'swapline' ) );
 				}
-				const progress = await post( 'start', { config: JSON.stringify( config ) } );
+				const progress = await post( 'start', { config: JSON.stringify( config ), backup: backupName } );
 				await drive( progress );
 			} catch ( e ) {
 				notice( 'error', e.message );

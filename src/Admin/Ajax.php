@@ -2,6 +2,7 @@
 
 namespace Swapline\Admin;
 
+use Swapline\Backup\Storage;
 use Swapline\Clock;
 use Swapline\Plugin;
 use Swapline\Run\Config;
@@ -68,7 +69,11 @@ final class Ajax {
 			Runner::finish( $previous, true );
 		}
 
-		$job = Runner::start( $config, 'admin' );
+		$job    = Runner::start( $config, 'admin' );
+		$backup = self::post_string( 'backup' );
+		if ( '' !== $backup && null !== Storage::path( $backup, 'backup' ) ) {
+			$job['backup'] = $backup;
+		}
 		Runner::save( $job );
 		Runner::checkpoint( $job );
 

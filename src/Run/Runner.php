@@ -199,6 +199,7 @@ final class Runner {
 			'tables'    => $job['tables'],
 			'totals'    => $totals,
 			'recorded'  => $job['recorded'],
+			'backup'    => $job['backup'] ?? null,
 			'truncated' => $totals['cells_changed'] > $job['recorded'],
 		);
 	}

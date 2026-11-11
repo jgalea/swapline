@@ -133,10 +133,13 @@ final class Command {
 		}
 
 		if ( ! $config['dry_run'] && WP_CLI\Utils\get_flag_value( $assoc_args, 'backup', false ) ) {
-			$this->backup_tables( $config['tables'], null );
+			$backup = basename( $this->backup_tables( $config['tables'], null ) );
 		}
 
-		$job      = Runner::start( $config, 'cli' );
+		$job = Runner::start( $config, 'cli' );
+		if ( isset( $backup ) ) {
+			$job['backup'] = $backup;
+		}
 		$progress = WP_CLI\Utils\make_progress_bar( $config['dry_run'] ? 'Dry run' : 'Replacing', count( $config['tables'] ) );
 		$index    = 0;
 

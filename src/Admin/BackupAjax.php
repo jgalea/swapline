@@ -340,6 +340,7 @@ final class BackupAjax {
 				'tables'   => $backup['tables'] > 0 ? number_format_i18n( $backup['tables'] ) : '',
 				'note'     => implode( ' · ', array_filter( array( $note, '' !== $backup['user'] ? sprintf( /* translators: %s: user login. */ __( 'By %s', 'swapline' ), $backup['user'] ) : '' ) ) ),
 				'download' => Storage::download_url( $backup['name'] ),
+				'restore'  => ! Tables::uses_sqlite(),
 			);
 		}
 		return $rows;
