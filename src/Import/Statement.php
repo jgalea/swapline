@@ -218,7 +218,7 @@ final class Statement {
 		}
 		if ( preg_match( '/^INSERT\s+(?:IGNORE\s+)?INTO\s+' . self::IDENT . '\s*(?:\(\s*' . self::IDENT . '(?:\s*,\s*' . self::IDENT . ')*\s*\))?\s*VALUES\s*(?=\()/i', $sql, $m, PREG_OFFSET_CAPTURE ) ) {
 			if ( ! self::literal_values( (string) substr( $sql, strlen( $m[0][0] ) ) ) ) {
-				return self::reject( $sql, 'INSERT values must be literals.' );
+				return self::reject( $sql, __( 'INSERT values must be literals.', 'swapline' ) );
 			}
 			return self::with_table( self::INSERT, $sql, $m[1], $prefix, $foreign );
 		}
@@ -237,7 +237,8 @@ final class Statement {
 		if ( in_array( $kind, array( 'CREATE', 'DROP', 'ALTER' ), true ) && preg_match( '/\b(TABLE|TRIGGER|PROCEDURE|FUNCTION|EVENT|VIEW|USER|DATABASE|SCHEMA|INDEX|ROLE|SERVER|TABLESPACE)\b/i', $sql, $object ) ) {
 			$kind .= ' ' . strtoupper( $object[1] );
 		}
-		return self::reject( $sql, sprintf( '%s statements are not allowed.', '' === $kind ? 'These' : $kind ) );
+		/* translators: %s: SQL statement kind, such as CREATE TRIGGER. */
+		return self::reject( $sql, '' === $kind ? __( 'These statements are not allowed.', 'swapline' ) : sprintf( __( '%s statements are not allowed.', 'swapline' ), $kind ) );
 	}
 
 	/**
@@ -338,15 +339,17 @@ final class Statement {
 		$table = self::unquote( $found[0] );
 
 		if ( ! preg_match( '/^[A-Za-z0-9_$-]{1,64}$/', $table ) ) {
-			return self::reject( $sql, 'The table name is not valid.' );
+			return self::reject( $sql, __( 'The table name is not valid.', 'swapline' ) );
 		}
 		if ( '' === $prefix || 0 !== strpos( $table, $prefix ) ) {
-			return self::reject( $sql, sprintf( 'The table %s does not use this site\'s table prefix.', $table ) );
+			/* translators: %s: table name. */
+			return self::reject( $sql, sprintf( __( 'The table %s does not use this site\'s table prefix.', 'swapline' ), $table ) );
 		}
 
 		foreach ( $foreign as $other ) {
 			if ( 0 === strpos( $table, $other ) ) {
-				return self::reject( $sql, sprintf( 'The table %s belongs to another WordPress install in this database.', $table ) );
+				/* translators: %s: table name. */
+				return self::reject( $sql, sprintf( __( 'The table %s belongs to another WordPress install in this database.', 'swapline' ), $table ) );
 			}
 		}
 
@@ -394,28 +397,30 @@ final class Statement {
 		}
 
 		if ( null === $close ) {
-			return 'The CREATE TABLE statement is incomplete.';
+			return __( 'The CREATE TABLE statement is incomplete.', 'swapline' );
 		}
 
 		$options = self::without_strings( (string) substr( $sql, $close + 1 ) );
 		if ( preg_match( '/\b(SELECT|LIKE|UNION|DIRECTORY|TABLESPACE|CONNECTION)\b/i', $options, $m ) ) {
-			return sprintf( 'CREATE TABLE with %s is not allowed.', strtoupper( $m[1] ) );
+			/* translators: %s: SQL keyword, such as LIKE. */
+			return sprintf( __( 'CREATE TABLE with %s is not allowed.', 'swapline' ), strtoupper( $m[1] ) );
 		}
 		// Read on the raw text, since the engine name may be quoted.
 		$raw = (string) substr( $sql, $close + 1 );
 		preg_match_all( '/\bENGINE\b/i', $raw, $engines, PREG_OFFSET_CAPTURE );
 		foreach ( $engines[0] as $found ) {
 			if ( ! preg_match( '/\G\s*=?\s*([\'"`]?)([A-Za-z0-9_]+)\1(?![A-Za-z0-9_\'"`])/i', $raw, $engine, 0, $found[1] + strlen( $found[0] ) ) ) {
-				return 'The storage engine could not be read.';
+				return __( 'The storage engine could not be read.', 'swapline' );
 			}
 			if ( ! in_array( strtolower( $engine[2] ), self::ENGINES, true ) ) {
-				return sprintf( 'The %s storage engine is not allowed.', $engine[2] );
+				/* translators: %s: storage engine name. */
+				return sprintf( __( 'The %s storage engine is not allowed.', 'swapline' ), $engine[2] );
 			}
 		}
 
 		$body = self::without_strings( (string) substr( $sql, $open ) );
 		if ( preg_match( '/\bSELECT\b/i', $body ) ) {
-			return 'CREATE TABLE with SELECT is not allowed.';
+			return __( 'CREATE TABLE with SELECT is not allowed.', 'swapline' );
 		}
 		preg_match_all( '/([A-Za-z_][A-Za-z0-9_$]*)\s*\(/', $body, $calls, PREG_OFFSET_CAPTURE );
 		foreach ( $calls[1] as $call ) {
@@ -425,16 +430,17 @@ final class Statement {
 			if ( preg_match( '/\b(?:KEY|INDEX|REFERENCES|CONSTRAINT)\s+$/i', substr( $body, 0, $call[1] ) ) ) {
 				continue;
 			}
-			return sprintf( 'CREATE TABLE with %s() is not allowed.', strtoupper( $call[0] ) );
+			/* translators: %s: SQL function name. */
+			return sprintf( __( 'CREATE TABLE with %s() is not allowed.', 'swapline' ), strtoupper( $call[0] ) );
 		}
 		// A quoted or qualified name before a parenthesis calls a stored or loadable function.
 		if ( preg_match( '/\.\s*(?:\'\'|[A-Za-z_][A-Za-z0-9_$]*)\s*\(/', $body ) ) {
-			return 'CREATE TABLE with a qualified function name is not allowed.';
+			return __( 'CREATE TABLE with a qualified function name is not allowed.', 'swapline' );
 		}
 		preg_match_all( "/''\\s*\\((?!\\s*\\d+\\s*\\))/", $body, $quoted, PREG_OFFSET_CAPTURE );
 		foreach ( $quoted[0] as $call ) {
 			if ( ! preg_match( '/\b(?:KEY|INDEX|UNIQUE|REFERENCES|CONSTRAINT)\s+$/i', substr( $body, 0, $call[1] ) ) ) {
-				return 'CREATE TABLE with a quoted function name is not allowed.';
+				return __( 'CREATE TABLE with a quoted function name is not allowed.', 'swapline' );
 			}
 		}
 		return null;
@@ -487,7 +493,8 @@ final class Statement {
 
 			if ( preg_match( '/^(?:NAMES|CHARACTER\s+SET|CHARSET)\s+(\'?)([A-Za-z0-9_]+)\1(?:\s+COLLATE\s+(\'?)([A-Za-z0-9_]+)\3)?$/i', $assignment, $m ) ) {
 				if ( ! self::safe_charset( $m[2] ) || ( isset( $m[4] ) && '' !== $m[4] && ! self::safe_charset( $m[4], true ) ) ) {
-					return self::reject( $sql, sprintf( 'The %s character set is not allowed.', $m[2] ) );
+					/* translators: %s: character set name. */
+					return self::reject( $sql, sprintf( __( 'The %s character set is not allowed.', 'swapline' ), $m[2] ) );
 				}
 				continue;
 			}
@@ -497,12 +504,13 @@ final class Statement {
 			if ( preg_match( '/^(?:@@(?:SESSION\.|LOCAL\.)?|(?:SESSION|LOCAL)\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*:?=\s*(' . $scalar . ')$/is', $assignment, $m ) ) {
 				$name = strtolower( $m[1] );
 				if ( in_array( $name, array( 'global', 'persist', 'persist_only', 'password' ), true ) ) {
-					return self::reject( $sql, 'Only session variables can be set.' );
+					return self::reject( $sql, __( 'Only session variables can be set.', 'swapline' ) );
 				}
 				$literal = self::literal( $m[2] );
 				if ( in_array( $name, self::CHARSET_VARIABLES, true ) ) {
 					if ( null !== $literal && ! self::safe_charset( $literal, 'collation_connection' === $name ) ) {
-						return self::reject( $sql, sprintf( 'The %s character set is not allowed.', $literal ) );
+						/* translators: %s: character set name. */
+						return self::reject( $sql, sprintf( __( 'The %s character set is not allowed.', 'swapline' ), $literal ) );
 					}
 					$execute = $execute && null !== $literal;
 					continue;
@@ -514,7 +522,7 @@ final class Statement {
 				$execute = $execute && in_array( $name, self::SESSION_VARIABLES, true );
 				continue;
 			}
-			return self::reject( $sql, 'Only session variables can be set.' );
+			return self::reject( $sql, __( 'Only session variables can be set.', 'swapline' ) );
 		}
 
 		$statement          = new self( self::SET, $sql );
