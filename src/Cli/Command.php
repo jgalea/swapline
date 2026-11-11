@@ -154,11 +154,13 @@ final class Command {
 		if ( isset( $backup ) ) {
 			$job['backup'] = $backup;
 		}
+		Runner::checkpoint( $job );
 		$progress = WP_CLI\Utils\make_progress_bar( $config['dry_run'] ? 'Dry run' : 'Replacing', count( $config['tables'] ) );
 		$index    = 0;
 
 		while ( ! $job['done'] ) {
 			$job = Runner::step( $job );
+			Runner::checkpoint( $job );
 			while ( $index < $job['table_index'] ) {
 				$progress->tick();
 				++$index;

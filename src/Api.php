@@ -93,8 +93,10 @@ final class Api {
 		$config['tables'] = $affected;
 		$job              = Runner::start( $config, 'api' );
 		$job['backup']    = $name;
+		Runner::checkpoint( $job );
 		while ( ! $job['done'] ) {
 			$job = Runner::step( $job );
+			Runner::checkpoint( $job );
 		}
 
 		return array(
