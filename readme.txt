@@ -79,8 +79,8 @@ It uses the same engine as the admin screen, so it also replaces JSON-escaped va
 * Run several search and replace pairs in one pass, applied in order.
 * Limit a run, backup or import to chosen columns, or skip some.
 * Interrupted runs can be resumed, and the diff of a run stays available.
-* Admin, API and CLI runs no longer interfere with each other.
-* Table names match exactly, so a prefix such as wp_ no longer picks up wp_2_ tables.
+* A preview, backup or import started while an admin, API or CLI run is in progress no longer removes that run's recorded changes.
+* Table names match exactly, so other installs in the same database that use a longer prefix, such as wp_dev_, are left out.
 * SQLite sites get a clear message on the Import tab.
 * The users, usermeta and options tables stay limited to administrators even when the capability filter delegates Swapline.
 * The mobile layout works at phone widths.
