@@ -3,7 +3,6 @@
 namespace Swapline\Run;
 
 use Swapline\Database\Table;
-use Swapline\Engine\Replacer;
 use Swapline\Store;
 
 defined( 'ABSPATH' ) || exit;
@@ -22,10 +21,11 @@ final class Runner {
 	public const OWN_OPTIONS = array( 'swapline_runs', 'swapline_profiles', 'swapline_job', 'swapline_db_version', 'swapline_backup_job', 'swapline_import_job', 'swapline_backups', 'swapline_backup_dir', 'swapline_backup_retention' );
 
 	/**
-	 * @param array<string, mixed> $config Validated configuration.
+	 * @param array<string, mixed> $config       Validated configuration.
+	 * @param int|null             $record_limit Most changed cells to record, or null for the history setting.
 	 * @return array<string, mixed>
 	 */
-	public static function start( array $config, string $source ): array {
+	public static function start( array $config, string $source, ?int $record_limit = null ): array {
 		$job = array(
 			'id'          => wp_generate_uuid4(),
 			'started'     => time(),
@@ -37,6 +37,7 @@ final class Runner {
 			'offset'      => 0,
 			'table_rows'  => null,
 			'recorded'    => 0,
+			'record_cap'  => min( $record_limit ?? PHP_INT_MAX, History::max_recorded_changes( (bool) $config['dry_run'] ) ),
 			'done'        => false,
 			'tables'      => array(),
 		);
@@ -74,13 +75,13 @@ final class Runner {
 			$job['table_rows'] = $table->count_rows();
 		}
 
-		$columns = $table->text_columns( (bool) $config['skip_guid'] );
+		$columns = $table->text_columns( (bool) $config['skip_guid'], (array) ( $config['columns'] ?? array() ), (array) ( $config['skip_columns'] ?? array() ) );
 		$limit   = (int) $config['page_size'];
-		$rows    = array() === $columns ? array() : $table->fetch( $columns, Table::KEY_NONE === $table->key_type ? $job['offset'] : $job['cursor'], $limit );
+		$rows    = array() === $columns ? array() : $table->fetch( $columns, Table::KEY_NONE === $table->key_type ? $job['offset'] : $job['cursor'], $limit, (bool) $config['dry_run'] );
 
-		$engine = new Replacer( (string) $config['search'], (string) $config['replace'], (bool) $config['case_insensitive'], (bool) $config['regex'] );
+		$engine = Cells::engine( $config );
 		$counts = $job['tables'][ $name ];
-		$cap    = History::max_recorded_changes();
+		$cap    = (int) ( $job['record_cap'] ?? History::max_recorded_changes() );
 
 		$own = self::own_rows_column( $name );
 
@@ -121,7 +122,7 @@ final class Runner {
 				if ( $written ) {
 					foreach ( $changes as $column => $new ) {
 						++$counts['cells_changed'];
-						if ( $job['recorded'] < $cap && History::record( $job['id'], $name, $table->identify( $row ), $column, (string) $row[ $column ], $new, $replacements[ $column ] ) ) {
+						if ( $job['recorded'] < $cap && ! History::is_sensitive( $name, $row, $column ) && History::record( $job['id'], $name, $table->identify( $row ), $column, (string) $row[ $column ], $new, $replacements[ $column ] ) ) {
 							++$job['recorded'];
 						}
 					}
@@ -154,6 +155,30 @@ final class Runner {
 	 * @return array<string, mixed> The run summary.
 	 */
 	public static function finish( array $job, bool $cancelled = false ): array {
+		$run             = self::summary( $job, $cancelled ? 'cancelled' : 'complete' );
+		$run['finished'] = time();
+
+		History::add( $run );
+		do_action( 'swapline_after_run', $run );
+
+		return $run;
+	}
+
+	/**
+	 * Lists a job in the history while it runs, so its recorded cells survive and an interrupted
+	 * run can be found again.
+	 *
+	 * @param array<string, mixed> $job
+	 */
+	public static function checkpoint( array $job ): void {
+		History::add( self::summary( $job, 'running' ) );
+	}
+
+	/**
+	 * @param array<string, mixed> $job
+	 * @return array<string, mixed>
+	 */
+	private static function summary( array $job, string $status ): array {
 		$totals = self::empty_counts();
 		foreach ( $job['tables'] as $counts ) {
 			foreach ( $totals as $key => $value ) {
@@ -162,24 +187,20 @@ final class Runner {
 		}
 
 		$user = get_userdata( (int) $job['user_id'] );
-		$run  = array(
+		return array(
 			'id'        => $job['id'],
 			'started'   => $job['started'],
-			'finished'  => time(),
+			'finished'  => 0,
 			'user'      => $user ? $user->user_login : '',
 			'source'    => $job['source'],
-			'status'    => $cancelled ? 'cancelled' : 'complete',
+			'status'    => $status,
 			'config'    => Config::profile_fields( $job['config'] ),
 			'tables'    => $job['tables'],
 			'totals'    => $totals,
 			'recorded'  => $job['recorded'],
+			'backup'    => $job['backup'] ?? null,
 			'truncated' => $totals['cells_changed'] > $job['recorded'],
 		);
-
-		History::add( $run );
-		do_action( 'swapline_after_run', $run );
-
-		return $run;
 	}
 
 	/**
@@ -217,6 +238,7 @@ final class Runner {
 	 * @param array<string, mixed> $job
 	 */
 	public static function save( array $job ): void {
+		$job['touched'] = time();
 		Store::set( self::JOB_OPTION, $job );
 	}
 

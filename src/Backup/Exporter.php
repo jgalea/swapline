@@ -3,6 +3,7 @@
 
 namespace Swapline\Backup;
 
+use Swapline\Clock;
 use Swapline\Database\Table;
 use Swapline\Database\Tables;
 use Swapline\Run\Cells;
@@ -38,6 +39,9 @@ final class Exporter {
 
 		$previous = self::current();
 		if ( null !== $previous ) {
+			if ( Clock::is_recent( $previous ) && ( 'admin' !== $source || get_current_user_id() !== (int) $previous['user_id'] ) ) {
+				return new WP_Error( 'swapline_busy', __( 'Another backup is running. Wait for it to finish, or try again in a few minutes.', 'swapline' ) );
+			}
 			self::discard( $previous );
 		}
 
@@ -131,8 +135,8 @@ final class Exporter {
 
 			$columns = array_values( array_diff( array_keys( $table->columns ), $table->generated ) );
 			$cursor  = Table::KEY_NONE === $table->key_type ? $job['offset'] : $job['cursor'];
-			$rows    = array() === $columns ? array() : $table->fetch( $columns, $cursor, self::PAGE_SIZE );
-			$text    = null === $engine ? array() : $table->text_columns( (bool) $job['replace']['skip_guid'] );
+			$rows    = array() === $columns ? array() : $table->fetch( $columns, $cursor, self::PAGE_SIZE, true );
+			$text    = null === $engine ? array() : $table->text_columns( (bool) $job['replace']['skip_guid'], (array) ( $job['replace']['columns'] ?? array() ), (array) ( $job['replace']['skip_columns'] ?? array() ) );
 			$kinds   = array();
 			foreach ( $columns as $column ) {
 				$kinds[ $column ] = SqlWriter::kind( $table->columns[ $column ] );
@@ -231,12 +235,15 @@ final class Exporter {
 		if ( is_wp_error( $job ) ) {
 			return $job;
 		}
+		self::save( $job );
 		while ( ! $job['done'] && null === $job['error'] ) {
 			$job = self::step( $job, microtime( true ) + 5 );
+			self::save( $job );
 			if ( null !== $tick ) {
 				$tick( $job );
 			}
 		}
+		Store::delete( self::JOB_OPTION );
 		if ( null !== $job['error'] ) {
 			return new WP_Error( 'swapline_backup', (string) $job['error'] );
 		}
@@ -255,6 +262,7 @@ final class Exporter {
 	 * @param array<string, mixed> $job
 	 */
 	public static function save( array $job ): void {
+		$job['touched'] = time();
 		Store::set( self::JOB_OPTION, $job );
 	}
 

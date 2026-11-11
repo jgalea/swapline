@@ -251,4 +251,14 @@ SQL;
 		$statement = self::parse( $sql );
 		$this->assertSame( Statement::CREATE, $statement->type, $statement->reason );
 	}
+
+	public function test_rejection_reasons_go_through_translation(): void {
+		$GLOBALS['swapline_test']['translations'] = array( 'CREATE TABLE with %s is not allowed.' => 'CREATE TABLE con %s no permitido.' );
+
+		$statement = Statement::parse( 'CREATE TABLE `wp_x` (a int) SELECT * FROM wp_users', 'wp_' );
+
+		$this->assertSame( Statement::REJECT, $statement->type );
+		$this->assertSame( 'CREATE TABLE con SELECT no permitido.', $statement->reason );
+		unset( $GLOBALS['swapline_test']['translations'] );
+	}
 }

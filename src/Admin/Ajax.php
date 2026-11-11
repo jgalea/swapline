@@ -2,6 +2,9 @@
 
 namespace Swapline\Admin;
 
+use Swapline\Api;
+use Swapline\Backup\Storage;
+use Swapline\Clock;
 use Swapline\Plugin;
 use Swapline\Run\Config;
 use Swapline\Run\History;
@@ -12,7 +15,7 @@ defined( 'ABSPATH' ) || exit;
 
 final class Ajax {
 
-	public const ACTIONS = array( 'start', 'step', 'cancel', 'changes', 'profile_save', 'profile_delete' );
+	public const ACTIONS = array( 'start', 'step', 'cancel', 'status', 'changes', 'undo', 'profile_save', 'profile_delete' );
 
 	private const CHANGES_PER_PAGE = 20;
 
@@ -28,6 +31,18 @@ final class Ajax {
 		}
 		if ( ! current_user_can( Plugin::capability() ) ) {
 			wp_send_json_error( array( 'message' => __( 'You do not have permission to do that.', 'swapline' ) ), 403 );
+		}
+	}
+
+	/**
+	 * @param array<string, mixed> $job
+	 */
+	private static function guard_job( array $job ): void {
+		if ( get_current_user_id() !== (int) $job['user_id'] && ! current_user_can( Plugin::database_capability() ) ) {
+			wp_send_json_error( array( 'message' => __( 'This run belongs to another user.', 'swapline' ) ), 403 );
+		}
+		if ( ! Plugin::can_see_tables( (array) $job['config']['tables'] ) ) {
+			wp_send_json_error( array( 'message' => __( 'Only an administrator can run on the users, usermeta and options tables.', 'swapline' ) ), 403 );
 		}
 	}
 
@@ -55,8 +70,25 @@ final class Ajax {
 			wp_send_json_error( array( 'message' => $config->get_error_message() ), 400 );
 		}
 
-		$job = Runner::start( $config, 'admin' );
+		if ( array() !== Plugin::protected_tables( $config['tables'] ) && ! current_user_can( Plugin::database_capability() ) ) {
+			wp_send_json_error( array( 'message' => __( 'Only an administrator can run on the users, usermeta and options tables.', 'swapline' ) ), 403 );
+		}
+
+		$previous = Runner::current();
+		if ( null !== $previous ) {
+			if ( Clock::is_recent( $previous ) && get_current_user_id() !== (int) $previous['user_id'] ) {
+				wp_send_json_error( array( 'message' => __( 'Another search and replace is running. Wait for it to finish, or try again in a few minutes.', 'swapline' ) ), 409 );
+			}
+			Runner::finish( $previous, true );
+		}
+
+		$job    = Runner::start( $config, 'admin' );
+		$backup = self::post_string( 'backup' );
+		if ( '' !== $backup && null !== Storage::path( $backup, 'backup' ) ) {
+			$job['backup'] = $backup;
+		}
 		Runner::save( $job );
+		Runner::checkpoint( $job );
 
 		wp_send_json_success( Runner::progress( $job ) );
 	}
@@ -68,6 +100,8 @@ final class Ajax {
 		if ( null === $job || self::post_string( 'job' ) !== $job['id'] ) {
 			wp_send_json_error( array( 'message' => __( 'This run is no longer active. Another run may have replaced it.', 'swapline' ) ), 409 );
 		}
+
+		self::guard_job( $job );
 
 		$job = Runner::step( $job );
 
@@ -82,7 +116,33 @@ final class Ajax {
 		}
 
 		Runner::save( $job );
+		Runner::checkpoint( $job );
 		wp_send_json_success( array( 'progress' => Runner::progress( $job ) ) );
+	}
+
+	public static function handle_status(): void {
+		self::guard( 'status' );
+
+		wp_send_json_success( array( 'job' => self::job_summary( Runner::current() ) ) );
+	}
+
+	/**
+	 * What the page needs to offer resuming a run that stopped part way.
+	 *
+	 * @param array<string, mixed>|null $job
+	 * @return array<string, mixed>|null
+	 */
+	public static function job_summary( ?array $job ): ?array {
+		if ( null === $job || ! Plugin::can_see_tables( (array) $job['config']['tables'] ) ) {
+			return null;
+		}
+		return array_merge(
+			Runner::progress( $job ),
+			array(
+				'dry_run' => (bool) $job['config']['dry_run'],
+				'search'  => (string) $job['config']['search'],
+			)
+		);
 	}
 
 	public static function handle_cancel(): void {
@@ -92,6 +152,8 @@ final class Ajax {
 		if ( null === $job || self::post_string( 'job' ) !== $job['id'] ) {
 			wp_send_json_success( array( 'run' => null ) );
 		}
+
+		self::guard_job( $job );
 
 		Runner::clear();
 		wp_send_json_success( array( 'run' => Runner::finish( $job, true ) ) );
@@ -104,6 +166,13 @@ final class Ajax {
 		$run    = History::find( $run_id );
 		if ( null === $run ) {
 			wp_send_json_error( array( 'message' => __( 'That run is no longer in the history.', 'swapline' ) ), 404 );
+		}
+
+		if ( ! current_user_can( Plugin::database_capability() ) ) {
+			$changed = array_keys( array_filter( $run['tables'], static fn( array $counts ): bool => $counts['cells_changed'] > 0 ) );
+			if ( array() !== Plugin::protected_tables( $changed ) ) {
+				wp_send_json_error( array( 'message' => __( 'Only an administrator can view changes to the users, usermeta and options tables.', 'swapline' ) ), 403 );
+			}
 		}
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified in guard().
@@ -136,6 +205,24 @@ final class Ajax {
 				'items' => $items,
 			)
 		);
+	}
+
+	public static function handle_undo(): void {
+		self::guard( 'undo' );
+
+		$run = History::find( self::post_string( 'run' ) );
+		if ( null === $run ) {
+			wp_send_json_error( array( 'message' => __( 'That run is no longer in the history.', 'swapline' ) ), 404 );
+		}
+		if ( array() !== Plugin::protected_tables( array_keys( $run['tables'] ) ) && ! current_user_can( Plugin::database_capability() ) ) {
+			wp_send_json_error( array( 'message' => __( 'Only an administrator can undo a run on the users, usermeta and options tables.', 'swapline' ) ), 403 );
+		}
+
+		$result = Api::undo( (string) $run['id'] );
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ), 409 );
+		}
+		wp_send_json_success( $result );
 	}
 
 	public static function handle_profile_save(): void {

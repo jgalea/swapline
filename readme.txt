@@ -45,7 +45,7 @@ Yes. A live run writes to the database and can't be undone. Do a dry run first a
 
 = Can I let other roles use Swapline? =
 
-Yes. Return a different capability from the `swapline_capability` filter, for example `add_filter( 'swapline_capability', fn() => 'edit_others_posts' );`. It controls the admin page, the backups and the API access that other plugins get. Search and replace changes the whole database, so choose a capability you trust.
+Yes. Return a different capability from the `swapline_capability` filter, for example `add_filter( 'swapline_capability', fn() => 'manage_woocommerce' );`. It controls the Search & Replace and History screens. Backups, downloads, imports, restores and runs on the users tables always need `manage_options` (`manage_network` on multisite), because they expose password hashes and can create administrators. Anyone you give the capability to can rewrite your posts, options and settings, so pick a role you'd trust with the database.
 
 = Why is the guid column skipped? =
 
@@ -73,6 +73,17 @@ It uses the same engine as the admin screen, so it also replaces JSON-escaped va
 
 == Changelog ==
 
+= Unreleased =
+* Undo a run from History: cells the run changed go back to their earlier value, and cells edited since are left alone.
+* Restore the backup taken before a run from History or the Backup list in one click.
+* Run several search and replace pairs in one pass, applied in order.
+* Limit a run, backup or import to chosen columns, or skip some.
+* Interrupted runs can be resumed, and the diff of a run stays available.
+* A preview, backup or import started while an admin, API or CLI run is in progress no longer removes that run's recorded changes.
+* Table names match exactly, so other installs in the same database that use a longer prefix, such as wp_dev_, are left out.
+* SQLite sites get a clear message on the Import tab.
+* The users, usermeta and options tables stay limited to administrators even when the capability filter delegates Swapline.
+* The mobile layout works at phone widths.
 = 0.3.0 =
 * Other plugins can run previews, replacements and backups through Swapline's API.
 * The `swapline_capability` filter sets which capability can use Swapline.

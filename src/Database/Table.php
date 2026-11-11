@@ -93,12 +93,19 @@ final class Table {
 	/**
 	 * Text columns that may be rewritten.
 	 *
+	 * @param string[] $only Limit to these columns when not empty.
+	 * @param string[] $skip Leave these columns out.
 	 * @return string[]
 	 */
-	public function text_columns( bool $skip_guid ): array {
-		$out = array();
+	public function text_columns( bool $skip_guid, array $only = array(), array $skip = array() ): array {
+		$only = array_map( 'strtolower', $only );
+		$skip = array_map( 'strtolower', $skip );
+		$out  = array();
 		foreach ( $this->columns as $name => $type ) {
 			if ( in_array( $name, $this->key, true ) || in_array( $name, $this->generated, true ) || ( $skip_guid && 'guid' === strtolower( $name ) ) ) {
+				continue;
+			}
+			if ( ( array() !== $only && ! in_array( strtolower( $name ), $only, true ) ) || in_array( strtolower( $name ), $skip, true ) ) {
 				continue;
 			}
 			if ( preg_match( '/char|text|json/', $type ) ) {
@@ -119,15 +126,18 @@ final class Table {
 	 *
 	 * @param string[]                  $columns
 	 * @param array<int, string>|int|null $cursor
+	 * @param bool                      $stable Order keyless tables by every column so offsets are repeatable. Only for
+	 *                                          reads: a write moves a row in that order, so live runs keep the table's own order.
 	 * @return array<int, array<string, string|null>>
 	 */
-	public function fetch( array $columns, $cursor, int $limit ): array {
+	public function fetch( array $columns, $cursor, int $limit, bool $stable = false ): array {
 		global $wpdb;
 
 		$table = Tables::quote( $this->name );
 
 		if ( self::KEY_NONE === $this->key_type ) {
-			return (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM %i LIMIT %d, %d', $this->name, (int) $cursor, $limit ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- batched read of live rows.
+			$order = $stable ? ' ORDER BY ' . implode( ', ', array_map( array( self::class, 'ident' ), array_keys( $this->columns ) ) ) : '';
+			return (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM %i' . $order . ' LIMIT %d, %d', $this->name, (int) $cursor, $limit ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- batched read of live rows; identifiers are quoted.
 		}
 
 		$select = implode( ', ', array_map( array( Tables::class, 'quote' ), array_unique( array_merge( $this->key, $columns ) ) ) );
@@ -162,11 +172,12 @@ final class Table {
 
 	/**
 	 * @param array<string, string|null> $row Original row as read.
-	 * @return array<string, string|null> Key column => value, or every column for keyless tables.
+	 * @return array<string, string|null> Key column => value, or every column for keyless tables except float and
+	 *                                    double ones, whose stored value never equals the decimal text MySQL returned.
 	 */
 	public function identify( array $row ): array {
 		if ( self::KEY_NONE === $this->key_type ) {
-			return $row;
+			return array_diff_key( $row, array_filter( $this->columns, static fn( string $type ): bool => 1 === preg_match( '/^(?:float|double|real)/', $type ) ) );
 		}
 		return array_intersect_key( $row, array_flip( $this->key ) );
 	}
@@ -181,16 +192,16 @@ final class Table {
 		$set  = array();
 		$args = array();
 		foreach ( $changes as $column => $value ) {
-			$set[]  = Tables::quote( $column ) . ' = %s';
+			$set[]  = self::ident( $column ) . ' = %s';
 			$args[] = $value;
 		}
 
-		$sql = 'UPDATE ' . Tables::quote( $this->name ) . ' SET ' . implode( ', ', $set ) . ' WHERE ' . self::where( $this->identify( $row ), $args );
+		$sql = 'UPDATE ' . self::ident( $this->name ) . ' SET ' . implode( ', ', $set ) . ' WHERE ' . self::where( $this->identify( $row ), $args );
 		if ( self::KEY_NONE === $this->key_type ) {
 			$sql .= ' LIMIT 1';
 		}
 
-		$sql    = $wpdb->prepare( self::escape_percent_outside_placeholders( $sql ), $args ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- identifiers are validated and quoted, values are placeholders.
+		$sql    = $wpdb->prepare( $sql, $args ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- identifiers are validated and quoted, values are placeholders.
 		$result = $wpdb->query( $sql ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- prepared on the line above.
 		return false !== $result && $result > 0;
 	}
@@ -209,8 +220,8 @@ final class Table {
 			return null;
 		}
 		$args = array();
-		$sql  = 'SELECT ' . Tables::quote( $column ) . ' FROM ' . Tables::quote( $this->name ) . ' WHERE ' . self::where( $columns, $args ) . ' LIMIT 1';
-		$row  = $wpdb->get_row( $wpdb->prepare( self::escape_percent_outside_placeholders( $sql ), $args ), ARRAY_N ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- identifiers are validated and quoted, values are placeholders.
+		$sql  = 'SELECT ' . self::ident( $column ) . ' FROM ' . self::ident( $this->name ) . ' WHERE ' . self::where( $columns, $args ) . ' LIMIT 1';
+		$row  = $wpdb->get_row( $wpdb->prepare( $sql, $args ), ARRAY_N ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- identifiers are validated and quoted, values are placeholders.
 		return is_array( $row ) && null !== $row[0] ? (string) $row[0] : null;
 	}
 
@@ -247,11 +258,11 @@ final class Table {
 
 		$args  = array( $value );
 		$where = self::where( $columns, $args );
-		$sql   = 'UPDATE ' . Tables::quote( $this->name ) . ' SET ' . Tables::quote( $column ) . ' = %s WHERE ' . $where;
+		$sql   = 'UPDATE ' . self::ident( $this->name ) . ' SET ' . self::ident( $column ) . ' = %s WHERE ' . $where;
 		if ( self::KEY_NONE === $this->key_type ) {
 			$sql .= ' LIMIT 1';
 		}
-		$result = $wpdb->query( $wpdb->prepare( self::escape_percent_outside_placeholders( $sql ), $args ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- identifiers are validated and quoted, values are placeholders.
+		$result = $wpdb->query( $wpdb->prepare( $sql, $args ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- identifiers are validated and quoted, values are placeholders.
 		if ( false === $result ) {
 			return false;
 		}
@@ -262,8 +273,8 @@ final class Table {
 		$args   = array();
 		$where  = self::where( $columns, $args );
 		$args[] = $value;
-		$sql    = 'SELECT COUNT(*) FROM ' . Tables::quote( $this->name ) . ' WHERE ' . $where . ' AND BINARY ' . Tables::quote( $column ) . ' = %s';
-		return (int) $wpdb->get_var( $wpdb->prepare( self::escape_percent_outside_placeholders( $sql ), $args ) ) > 0; // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- identifiers are validated and quoted, values are placeholders.
+		$sql    = 'SELECT COUNT(*) FROM ' . self::ident( $this->name ) . ' WHERE ' . $where . ' AND BINARY ' . self::ident( $column ) . ' = %s';
+		return (int) $wpdb->get_var( $wpdb->prepare( $sql, $args ) ) > 0; // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- identifiers are validated and quoted, values are placeholders.
 	}
 
 	/**
@@ -274,10 +285,10 @@ final class Table {
 		$where = array();
 		foreach ( $columns as $column => $value ) {
 			if ( null === $value ) {
-				$where[] = Tables::quote( (string) $column ) . ' IS NULL';
+				$where[] = self::ident( (string) $column ) . ' IS NULL';
 				continue;
 			}
-			$where[] = Tables::quote( (string) $column ) . ' = %s';
+			$where[] = self::ident( (string) $column ) . ' = %s';
 			$args[]  = (string) $value;
 		}
 		return implode( ' AND ', $where );
@@ -287,7 +298,7 @@ final class Table {
 		return str_replace( '%', '%%', $sql );
 	}
 
-	private static function escape_percent_outside_placeholders( string $sql ): string {
-		return (string) preg_replace( '/%(?!s\b)/', '%%', $sql );
+	private static function ident( string $name ): string {
+		return self::escape_percent( Tables::quote( $name ) );
 	}
 }

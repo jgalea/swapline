@@ -4,6 +4,7 @@ namespace Swapline\Admin;
 
 use Swapline\Backup\Storage;
 use Swapline\Database\Tables;
+use Swapline\Plugin;
 use Swapline\Run\Config;
 
 defined( 'ABSPATH' ) || exit;
@@ -23,6 +24,9 @@ final class BackupScreen {
 	 * @return array<string, array{label: string, render: callable}>
 	 */
 	public static function tabs( array $tabs ): array {
+		if ( ! current_user_can( Plugin::database_capability() ) ) {
+			return $tabs;
+		}
 		$tabs['backup'] = array(
 			'label'  => __( 'Backup', 'swapline' ),
 			'render' => array( self::class, 'render_backup' ),
@@ -35,6 +39,9 @@ final class BackupScreen {
 	}
 
 	public static function enqueue(): void {
+		if ( ! current_user_can( Plugin::database_capability() ) ) {
+			return;
+		}
 		wp_enqueue_script( 'swapline-backup', plugins_url( 'assets/backup.js', SWAPLINE_FILE ), array( 'wp-i18n' ), SWAPLINE_VERSION, true );
 		wp_set_script_translations( 'swapline-backup', 'swapline' );
 
@@ -119,6 +126,19 @@ final class BackupScreen {
 		<?php if ( is_wp_error( $dir ) ) : ?>
 			<div class="notice notice-error inline"><p><?php echo esc_html( $dir->get_error_message() ); ?></p></div>
 		<?php endif; ?>
+		<?php if ( ! is_wp_error( $dir ) && Storage::is_exposed() ) : ?>
+			<div class="notice notice-warning inline"><p>
+				<?php
+				echo esc_html(
+					sprintf(
+						/* translators: %s: folder name. */
+						__( 'Your web server serves files from the backup folder (%s), so only the random file names keep backups private. Add a rule to your server configuration that denies access to that folder.', 'swapline' ),
+						basename( $dir )
+					)
+				);
+				?>
+			</p></div>
+		<?php endif; ?>
 		<p class="description"><?php esc_html_e( 'Backups are stored in a private folder in your uploads directory that cannot be opened from the web. Download them from here.', 'swapline' ); ?></p>
 		<div class="swapline-scroll">
 			<table class="widefat striped swapline-backups">
@@ -146,6 +166,13 @@ final class BackupScreen {
 	}
 
 	public static function render_import(): void {
+		if ( Tables::uses_sqlite() ) {
+			?>
+			<div class="notice notice-info inline"><p><?php esc_html_e( 'Imports and restores need a MySQL or MariaDB database. This site runs on SQLite, where backups can still be created and downloaded.', 'swapline' ); ?></p></div>
+			<?php
+			return;
+		}
+
 		$backups = Storage::backups();
 		?>
 		<div id="swapline-notice" class="notice inline hidden" role="status" aria-live="polite"><p></p></div>
@@ -270,6 +297,14 @@ final class BackupScreen {
 			<p>
 				<label for="<?php echo esc_attr( $id ); ?>-replace"><?php esc_html_e( 'Replace with', 'swapline' ); ?></label><br>
 				<textarea id="<?php echo esc_attr( $id ); ?>-replace" name="replace" class="large-text code" rows="2" spellcheck="false"></textarea>
+			</p>
+			<p>
+				<label for="<?php echo esc_attr( $id ); ?>-columns"><?php esc_html_e( 'Only these columns', 'swapline' ); ?></label><br>
+				<input type="text" id="<?php echo esc_attr( $id ); ?>-columns" name="columns" class="regular-text code" placeholder="post_content, meta_value" spellcheck="false">
+			</p>
+			<p>
+				<label for="<?php echo esc_attr( $id ); ?>-skip-columns"><?php esc_html_e( 'Skip these columns', 'swapline' ); ?></label><br>
+				<input type="text" id="<?php echo esc_attr( $id ); ?>-skip-columns" name="skip_columns" class="regular-text code" spellcheck="false">
 			</p>
 			<fieldset>
 				<legend class="screen-reader-text"><?php esc_html_e( 'Options', 'swapline' ); ?></legend>

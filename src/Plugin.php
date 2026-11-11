@@ -37,6 +37,51 @@ final class Plugin {
 	}
 
 	/**
+	 * The capability for backups, downloads, imports and restores, and for runs on the users tables. It is
+	 * not filterable: anyone who has it can read every password hash or become an administrator.
+	 */
+	public static function database_capability(): string {
+		return is_multisite() ? 'manage_network' : 'manage_options';
+	}
+
+	/**
+	 * Tables that hold accounts, roles and site settings. Rewriting them is enough to become an
+	 * administrator (usermeta capabilities, the user_roles option, default_role, active_plugins).
+	 *
+	 * @param string[] $tables
+	 * @return string[]
+	 */
+	public static function protected_tables( array $tables ): array {
+		global $wpdb;
+
+		$exact   = array( $wpdb->base_prefix . 'users', $wpdb->base_prefix . 'usermeta' );
+		$options = '/^' . preg_quote( $wpdb->base_prefix, '/' ) . '(?:[0-9]+_)?options$/';
+		if ( is_multisite() ) {
+			foreach ( array( 'blogs', 'blogmeta', 'site', 'sitemeta', 'signups', 'registration_log' ) as $network_table ) {
+				$exact[] = $wpdb->base_prefix . $network_table;
+			}
+		}
+
+		return array_values(
+			array_filter(
+				$tables,
+				static function ( string $table ) use ( $exact, $options ): bool {
+					return in_array( $table, $exact, true ) || 1 === preg_match( $options, $table );
+				}
+			)
+		);
+	}
+
+	/**
+	 * Whether the current user may see a run that touched these tables.
+	 *
+	 * @param string[] $tables
+	 */
+	public static function can_see_tables( array $tables ): bool {
+		return current_user_can( self::database_capability() ) || array() === self::protected_tables( $tables );
+	}
+
+	/**
 	 * @param string[] $links
 	 * @return string[]
 	 */
