@@ -39,7 +39,7 @@ final class Exporter {
 
 		$previous = self::current();
 		if ( null !== $previous ) {
-			if ( Clock::is_recent( $previous ) && ( 'admin' !== $source || (int) $previous['user_id'] !== get_current_user_id() ) ) {
+			if ( Clock::is_recent( $previous ) && ( 'admin' !== $source || get_current_user_id() !== (int) $previous['user_id'] ) ) {
 				return new WP_Error( 'swapline_busy', __( 'Another backup is running. Wait for it to finish, or try again in a few minutes.', 'swapline' ) );
 			}
 			self::discard( $previous );

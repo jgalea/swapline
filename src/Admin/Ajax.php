@@ -62,7 +62,7 @@ final class Ajax {
 
 		$previous = Runner::current();
 		if ( null !== $previous ) {
-			if ( Clock::is_recent( $previous ) && (int) $previous['user_id'] !== get_current_user_id() ) {
+			if ( Clock::is_recent( $previous ) && get_current_user_id() !== (int) $previous['user_id'] ) {
 				wp_send_json_error( array( 'message' => __( 'Another search and replace is running. Wait for it to finish, or try again in a few minutes.', 'swapline' ) ), 409 );
 			}
 			Runner::finish( $previous, true );

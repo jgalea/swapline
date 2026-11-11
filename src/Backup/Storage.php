@@ -220,7 +220,7 @@ final class Storage {
 			array(
 				'timeout'     => 3,
 				'redirection' => 0,
-				'sslverify'   => (bool) apply_filters( 'https_local_ssl_verify', false ),
+				'sslverify'   => (bool) apply_filters( 'https_local_ssl_verify', false ), // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WordPress core's own filter.
 			)
 		);
 		wp_delete_file( $probe );
