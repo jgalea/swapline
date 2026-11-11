@@ -145,4 +145,32 @@ final class PairsTest extends DbTestCase {
 
 		$this->assertSame( 'new.test and blue', $this->rows( 'wp_posts' )[0]['post_content'] );
 	}
+
+	public function test_more_than_the_most_pairs_is_refused_instead_of_dropped(): void {
+		$pairs = array();
+		for ( $i = 1; $i <= Config::MAX_PAIRS + 1; $i++ ) {
+			$pairs[] = array(
+				'search'  => 'a' . $i,
+				'replace' => 'b',
+			);
+		}
+
+		$config = Config::from_input(
+			array(
+				'pairs'  => $pairs,
+				'tables' => array( 'wp_posts' ),
+			)
+		);
+
+		$this->assertInstanceOf( \WP_Error::class, $config );
+		$this->assertSame( 'swapline_too_many_pairs', $config->get_error_code() );
+		$this->assertIsArray(
+			Config::from_input(
+				array(
+					'pairs'  => array_slice( $pairs, 0, Config::MAX_PAIRS ),
+					'tables' => array( 'wp_posts' ),
+				)
+			)
+		);
+	}
 }

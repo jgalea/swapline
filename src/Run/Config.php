@@ -52,7 +52,11 @@ final class Config {
 		}
 		$pairs = array();
 		if ( isset( $input['pairs'] ) && is_array( $input['pairs'] ) ) {
-			foreach ( array_slice( $input['pairs'], 0, self::MAX_PAIRS ) as $pair ) {
+			if ( count( $input['pairs'] ) > self::MAX_PAIRS ) {
+				/* translators: %s: the most search and replace pairs one run takes. */
+				return new WP_Error( 'swapline_too_many_pairs', sprintf( __( 'A run takes up to %s search and replace pairs. Split the list over more than one run.', 'swapline' ), number_format_i18n( self::MAX_PAIRS ) ) );
+			}
+			foreach ( $input['pairs'] as $pair ) {
 				if ( is_array( $pair ) && isset( $pair['search'] ) && is_scalar( $pair['search'] ) && '' !== (string) $pair['search'] ) {
 					$pairs[] = array(
 						'search'  => (string) $pair['search'],
