@@ -132,6 +132,9 @@ function esc_html( $text ) {
 function esc_html_e( $text ) {
 	echo $text; // phpcs:ignore WordPress.Security.EscapeOutput
 }
+function esc_attr__( $text ) {
+	return $text;
+}
 function esc_attr( $text ) {
 	return $text;
 }
