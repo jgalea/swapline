@@ -35,10 +35,11 @@ final class Api {
 		}
 
 		History::maybe_install();
-		$job = self::scan( $config );
+		$wanted = max( 0, min( 20, (int) ( $input['samples'] ?? self::SAMPLES ) ) );
+		$job    = self::scan( $config, $wanted );
 
 		$samples = array();
-		foreach ( History::changes( $job['id'], 1, max( 0, min( 20, (int) ( $input['samples'] ?? self::SAMPLES ) ) ) )['items'] as $item ) {
+		foreach ( History::changes( $job['id'], 1, $wanted )['items'] as $item ) {
 			$samples[] = array(
 				'table'  => $item['table_name'],
 				'row'    => json_decode( (string) $item['row_key'], true ),
@@ -71,7 +72,7 @@ final class Api {
 		}
 
 		History::maybe_install();
-		$affected = array_keys( self::matched( self::scan( array_merge( $config, array( 'dry_run' => true ) ) ) ) );
+		$affected = array_keys( self::matched( self::scan( array_merge( $config, array( 'dry_run' => true ) ), 0 ) ) );
 		History::prune( array_column( History::runs(), 'id' ) );
 		if ( array() === $affected ) {
 			return array(
@@ -255,10 +256,11 @@ final class Api {
 
 	/**
 	 * @param array<string, mixed> $config
+	 * @param int                  $record Changed cells worth keeping.
 	 * @return array<string, mixed>
 	 */
-	private static function scan( array $config ): array {
-		$job = Runner::start( $config, 'api' );
+	private static function scan( array $config, int $record ): array {
+		$job = Runner::start( $config, 'api', $record );
 		while ( ! $job['done'] ) {
 			$job = Runner::step( $job );
 		}

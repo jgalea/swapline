@@ -15,6 +15,7 @@ final class History {
 	public const DB_VERSION = '1';
 
 	private const MAX_VALUE_BYTES = 262144;
+	private const DRY_RUN_CELLS   = 500;
 
 	public static function table(): string {
 		global $wpdb;
@@ -58,8 +59,9 @@ final class History {
 		return max( 1, (int) apply_filters( 'swapline_history_size', 5 ) );
 	}
 
-	public static function max_recorded_changes(): int {
-		return max( 0, (int) apply_filters( 'swapline_max_recorded_changes', 2000 ) );
+	public static function max_recorded_changes( bool $dry_run = false ): int {
+		$limit = max( 0, (int) apply_filters( 'swapline_max_recorded_changes', 2000 ) );
+		return $dry_run ? min( $limit, self::DRY_RUN_CELLS ) : $limit;
 	}
 
 	/**

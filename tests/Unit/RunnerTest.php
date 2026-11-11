@@ -136,4 +136,65 @@ final class RunnerTest extends DbTestCase {
 		$this->assertSame( array( 'old-nick' ), array_column( array_filter( $kept, fn( $i ) => 'meta_value' === $i['column_name'] ), 'old_value' ) );
 		$this->assertTrue( $run['truncated'] );
 	}
+
+	public function test_a_preview_records_only_the_samples_it_returns(): void {
+		for ( $i = 1; $i <= 40; $i++ ) {
+			$this->insert(
+				'wp_posts',
+				array(
+					'ID'           => $i,
+					'post_title'   => 'a',
+					'post_content' => 'http://old.test/' . $i,
+				)
+			);
+		}
+		$preview = \Swapline\Api::preview(
+			array(
+				'search'  => 'old.test',
+				'replace' => 'new.test',
+				'tables'  => array( 'wp_posts' ),
+				'samples' => 3,
+			)
+		);
+
+		$this->assertCount( 3, $preview['samples'] );
+		$this->assertSame( 40, $preview['totals']['cells_changed'] );
+		$this->assertSame( array(), $this->rows( 'wp_swapline_changes' ), 'Nothing is left behind after a preview.' );
+	}
+
+	public function test_a_dry_run_records_no_more_cells_than_its_cap(): void {
+		for ( $i = 1; $i <= 700; $i++ ) {
+			$this->insert(
+				'wp_posts',
+				array(
+					'ID'           => $i,
+					'post_title'   => 'a',
+					'post_content' => 'http://old.test/' . $i,
+				)
+			);
+		}
+
+		$job = $this->run_all( Runner::start( $this->config( array( 'dry_run' => true ) ), 'admin' ) );
+		$run = Runner::finish( $job );
+
+		$this->assertSame( 500, History::changes( $run['id'], 1, 1 )['total'] );
+		$this->assertTrue( $run['truncated'] );
+	}
+
+	public function test_a_run_can_be_started_with_a_lower_recording_limit(): void {
+		for ( $i = 1; $i <= 10; $i++ ) {
+			$this->insert(
+				'wp_posts',
+				array(
+					'ID'           => $i,
+					'post_title'   => 'a',
+					'post_content' => 'http://old.test/' . $i,
+				)
+			);
+		}
+
+		$job = $this->run_all( Runner::start( $this->config( array( 'dry_run' => true ) ), 'api', 2 ) );
+
+		$this->assertSame( 2, History::changes( $job['id'], 1, 50 )['total'] );
+	}
 }

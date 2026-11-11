@@ -22,10 +22,11 @@ final class Runner {
 	public const OWN_OPTIONS = array( 'swapline_runs', 'swapline_profiles', 'swapline_job', 'swapline_db_version', 'swapline_backup_job', 'swapline_import_job', 'swapline_backups', 'swapline_backup_dir', 'swapline_backup_retention' );
 
 	/**
-	 * @param array<string, mixed> $config Validated configuration.
+	 * @param array<string, mixed> $config       Validated configuration.
+	 * @param int|null             $record_limit Most changed cells to record, or null for the history setting.
 	 * @return array<string, mixed>
 	 */
-	public static function start( array $config, string $source ): array {
+	public static function start( array $config, string $source, ?int $record_limit = null ): array {
 		$job = array(
 			'id'          => wp_generate_uuid4(),
 			'started'     => time(),
@@ -37,6 +38,7 @@ final class Runner {
 			'offset'      => 0,
 			'table_rows'  => null,
 			'recorded'    => 0,
+			'record_cap'  => min( $record_limit ?? PHP_INT_MAX, History::max_recorded_changes( (bool) $config['dry_run'] ) ),
 			'done'        => false,
 			'tables'      => array(),
 		);
@@ -80,7 +82,7 @@ final class Runner {
 
 		$engine = new Replacer( (string) $config['search'], (string) $config['replace'], (bool) $config['case_insensitive'], (bool) $config['regex'] );
 		$counts = $job['tables'][ $name ];
-		$cap    = History::max_recorded_changes();
+		$cap    = (int) ( $job['record_cap'] ?? History::max_recorded_changes() );
 
 		$own = self::own_rows_column( $name );
 
