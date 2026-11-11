@@ -254,6 +254,8 @@ final class Importer {
 			self::abort( __( 'The file could not be unpacked. Check the free disk space.', 'swapline' ) );
 		}
 
+		$limit = max( 0, (int) apply_filters( 'swapline_max_unpacked_size', 50 * (int) $job['size'] ) );
+
 		$finished = false;
 		do {
 			$data = gzread( $in, self::CHUNK );
@@ -272,6 +274,11 @@ final class Importer {
 				self::abort( __( 'The file could not be unpacked. Check the free disk space.', 'swapline' ) );
 			}
 			$job['offset'] += strlen( $data );
+			if ( $job['offset'] > $limit ) {
+				fclose( $out );
+				gzclose( $in );
+				self::abort( __( 'The file unpacks to far more data than its size suggests, so it was not imported.', 'swapline' ) );
+			}
 		} while ( microtime( true ) < $deadline );
 
 		fclose( $out );

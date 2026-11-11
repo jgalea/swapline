@@ -127,3 +127,33 @@ function wp_die( $message = '', $title = '', $args = array() ) {
 function esc_html( $text ) {
 	return $text;
 }
+function wp_upload_dir( $time = null, $create = true ) {
+	$base = $GLOBALS['swapline_test']['uploads'] ?? sys_get_temp_dir() . '/swapline-test-uploads';
+	return array(
+		'basedir' => $base,
+		'error'   => false,
+	);
+}
+function wp_mkdir_p( $dir ) {
+	return is_dir( $dir ) || mkdir( $dir, 0777, true );
+}
+function wp_delete_file_from_directory( $file, $dir ) {
+	return unlink( $file );
+}
+function wp_delete_file( $file ) {
+	if ( is_file( $file ) ) {
+		unlink( $file );
+	}
+}
+function wp_max_upload_size() {
+	return 1048576;
+}
+function add_query_arg( $args, $url ) {
+	return $url . '?' . http_build_query( $args );
+}
+function admin_url( $path = '' ) {
+	return 'http://example.test/wp-admin/' . $path;
+}
+function wp_create_nonce( $action ) {
+	return 'nonce-' . $action;
+}
