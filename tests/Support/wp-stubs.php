@@ -29,6 +29,8 @@ function swapline_test_reset(): void {
 		'user'    => 1,
 		'caps'    => array(),
 		'multi'   => false,
+		'transients' => array(),
+		'requests'   => array(),
 	);
 }
 
@@ -131,6 +133,7 @@ function wp_upload_dir( $time = null, $create = true ) {
 	$base = $GLOBALS['swapline_test']['uploads'] ?? sys_get_temp_dir() . '/swapline-test-uploads';
 	return array(
 		'basedir' => $base,
+		'baseurl' => 'http://example.test/wp-content/uploads',
 		'error'   => false,
 	);
 }
@@ -156,4 +159,18 @@ function admin_url( $path = '' ) {
 }
 function wp_create_nonce( $action ) {
 	return 'nonce-' . $action;
+}
+function get_transient( $key ) {
+	return $GLOBALS['swapline_test']['transients'][ $key ] ?? false;
+}
+function set_transient( $key, $value ) {
+	$GLOBALS['swapline_test']['transients'][ $key ] = $value;
+	return true;
+}
+function wp_remote_head( $url, $args = array() ) {
+	$GLOBALS['swapline_test']['requests'][] = $url;
+	return $GLOBALS['swapline_test']['head'] ?? new WP_Error( 'none', 'no response' );
+}
+function wp_remote_retrieve_response_code( $response ) {
+	return $response['code'] ?? 0;
 }

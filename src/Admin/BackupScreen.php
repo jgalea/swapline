@@ -126,6 +126,19 @@ final class BackupScreen {
 		<?php if ( is_wp_error( $dir ) ) : ?>
 			<div class="notice notice-error inline"><p><?php echo esc_html( $dir->get_error_message() ); ?></p></div>
 		<?php endif; ?>
+		<?php if ( ! is_wp_error( $dir ) && Storage::is_exposed() ) : ?>
+			<div class="notice notice-warning inline"><p>
+				<?php
+				echo esc_html(
+					sprintf(
+						/* translators: %s: folder name. */
+						__( 'Your web server serves files from the backup folder (%s), so only the random file names keep backups private. Add a rule to your server configuration that denies access to that folder.', 'swapline' ),
+						basename( $dir )
+					)
+				);
+				?>
+			</p></div>
+		<?php endif; ?>
 		<p class="description"><?php esc_html_e( 'Backups are stored in a private folder in your uploads directory that cannot be opened from the web. Download them from here.', 'swapline' ); ?></p>
 		<div class="swapline-scroll">
 			<table class="widefat striped swapline-backups">

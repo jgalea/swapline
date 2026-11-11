@@ -20,6 +20,8 @@ final class Storage {
 	public const RETENTION_OPTION  = 'swapline_backup_retention';
 	public const DEFAULT_RETENTION = 5;
 
+	private const EXPOSED_TRANSIENT = 'swapline_folder_exposed';
+
 	private const PATTERNS = array(
 		'backup' => '/^backup-\d{8}-\d{6}-[a-f0-9]{12}\.sql\.gz$/',
 		'upload' => '/^upload-[a-f0-9]{12}\.sql(?:\.gz)?$/',
@@ -193,6 +195,41 @@ final class Storage {
 		}
 	}
 
+	/**
+	 * Whether the web server hands out files from the private folder, as nginx does when it ignores the
+	 * .htaccess rule. Asks the site's own address for a throwaway file and remembers the answer for a day.
+	 */
+	public static function is_exposed(): bool {
+		$cached = get_transient( self::EXPOSED_TRANSIENT );
+		if ( false !== $cached ) {
+			return '1' === $cached;
+		}
+
+		$dir = self::dir();
+		$url = self::uploads_basedir( 'baseurl' );
+		if ( is_wp_error( $dir ) || is_wp_error( $url ) ) {
+			return false;
+		}
+
+		$probe = $dir . '/swapline-probe.txt';
+		if ( false === file_put_contents( $probe, 'swapline' ) ) {
+			return false;
+		}
+		$response = wp_remote_head(
+			untrailingslashit( $url ) . '/' . basename( $dir ) . '/swapline-probe.txt',
+			array(
+				'timeout'     => 3,
+				'redirection' => 0,
+				'sslverify'   => (bool) apply_filters( 'https_local_ssl_verify', false ),
+			)
+		);
+		wp_delete_file( $probe );
+
+		$exposed = ! is_wp_error( $response ) && 200 === (int) wp_remote_retrieve_response_code( $response );
+		set_transient( self::EXPOSED_TRANSIENT, $exposed ? '1' : '0', DAY_IN_SECONDS );
+		return $exposed;
+	}
+
 	public static function download_url( string $name ): string {
 		return add_query_arg(
 			array(
@@ -217,7 +254,7 @@ final class Storage {
 	 *
 	 * @return string|WP_Error
 	 */
-	private static function uploads_basedir() {
+	private static function uploads_basedir( string $key = 'basedir' ) {
 		$switched = is_multisite() && ! is_main_site();
 		if ( $switched ) {
 			switch_to_blog( get_main_site_id() );
@@ -230,6 +267,6 @@ final class Storage {
 		if ( ! empty( $uploads['error'] ) ) {
 			return new WP_Error( 'swapline_storage', (string) $uploads['error'] );
 		}
-		return (string) $uploads['basedir'];
+		return (string) $uploads[ $key ];
 	}
 }
