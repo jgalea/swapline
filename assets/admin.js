@@ -523,28 +523,99 @@
 					}
 					notice( 'info', __( 'The selected tables were backed up first. The backup is listed on the Backup tab.', 'swapline' ) );
 				}
-				let progress = await post( 'start', { config: JSON.stringify( config ) } );
-				const jobId = progress.id;
-				showProgress( progress );
-				let run = null;
-				while ( ! run ) {
-					if ( cancelRequested ) {
-						run = ( await post( 'cancel', { job: jobId } ) ).run;
-						break;
-					}
-					const result = await post( 'step', { job: jobId } );
-					progress = result.progress;
-					showProgress( progress );
-					run = result.run || null;
+				const progress = await post( 'start', { config: JSON.stringify( config ) } );
+				await drive( progress );
+			} catch ( e ) {
+				notice( 'error', e.message );
+				await offerResume();
+			}
+			setRunning( false );
+		} );
+
+		const resumeBox = $( '#swapline-resume' );
+
+		function showUnfinished( job ) {
+			if ( ! job ) {
+				resumeBox.classList.add( 'hidden' );
+				return;
+			}
+			$( 'p', resumeBox ).textContent = job.dry_run
+				? sprintf(
+						/* translators: 1: table number, 2: table count. */
+						__( 'A dry run stopped at table %1$s of %2$s. Nothing was written. Resume it, or stop and keep what it found.', 'swapline' ),
+						number( job.table_index + 1 ),
+						number( job.table_count )
+				  )
+				: sprintf(
+						/* translators: 1: table number, 2: table count. */
+						__( 'A run stopped at table %1$s of %2$s. The tables before it are already changed. Resume it to finish, or stop and keep the record of what changed.', 'swapline' ),
+						number( job.table_index + 1 ),
+						number( job.table_count )
+				  );
+			resumeBox.dataset.job = job.id;
+			resumeBox.classList.remove( 'hidden' );
+		}
+
+		async function offerResume() {
+			try {
+				showUnfinished( ( await post( 'status' ) ).job );
+			} catch ( e ) {
+				// The server can't be reached; reloading the page offers the resume again.
+			}
+		}
+
+		async function drive( start ) {
+			const jobId = start.id;
+			let progress = start;
+			let run = null;
+			showProgress( progress );
+			while ( ! run ) {
+				if ( cancelRequested ) {
+					run = ( await post( 'cancel', { job: jobId } ) ).run;
+					break;
 				}
+				const result = await post( 'step', { job: jobId } );
+				progress = result.progress;
+				showProgress( progress );
+				run = result.run || null;
+			}
+			if ( run ) {
+				renderResults( run );
+			}
+		}
+
+		$( '[data-action="resume"]', resumeBox ).addEventListener( 'click', async () => {
+			const id = resumeBox.dataset.job;
+			resumeBox.classList.add( 'hidden' );
+			cancelRequested = false;
+			setRunning( true );
+			notice( '', '' );
+			try {
+				const status = ( await post( 'status' ) ).job;
+				if ( ! status || status.id !== id ) {
+					throw new Error( __( 'That run is no longer active.', 'swapline' ) );
+				}
+				await drive( status );
+			} catch ( e ) {
+				notice( 'error', e.message );
+				await offerResume();
+			}
+			setRunning( false );
+		} );
+
+		$( '[data-action="stop"]', resumeBox ).addEventListener( 'click', async () => {
+			try {
+				const run = ( await post( 'cancel', { job: resumeBox.dataset.job } ) ).run;
+				resumeBox.classList.add( 'hidden' );
 				if ( run ) {
 					renderResults( run );
 				}
 			} catch ( e ) {
 				notice( 'error', e.message );
 			}
-			setRunning( false );
 		} );
+
+		showUnfinished( data.unfinished );
 
 		window.addEventListener( 'beforeunload', ( event ) => {
 			if ( running ) {

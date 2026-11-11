@@ -96,14 +96,34 @@ final class History {
 	}
 
 	/**
+	 * Adds a run, or replaces the entry with the same id. Runs still in progress never count against
+	 * the history size, so a flood of short runs can't push them out.
+	 *
 	 * @param array<string, mixed> $run
 	 */
 	public static function add( array $run ): void {
-		$runs = self::runs();
-		array_unshift( $runs, $run );
-		$runs = array_slice( $runs, 0, self::size() );
-		Store::set( self::OPTION, $runs );
-		self::prune( array_column( $runs, 'id' ) );
+		$runs  = self::runs();
+		$found = false;
+		foreach ( $runs as $i => $existing ) {
+			if ( ( $existing['id'] ?? '' ) === $run['id'] ) {
+				$runs[ $i ] = $run;
+				$found      = true;
+			}
+		}
+		if ( ! $found ) {
+			array_unshift( $runs, $run );
+		}
+
+		$kept  = array();
+		$count = 0;
+		foreach ( $runs as $item ) {
+			if ( 'running' === ( $item['status'] ?? '' ) || $count < self::size() ) {
+				$kept[] = $item;
+				$count += 'running' === ( $item['status'] ?? '' ) ? 0 : 1;
+			}
+		}
+		Store::set( self::OPTION, $kept );
+		self::prune( array_column( $kept, 'id' ) );
 	}
 
 	/**

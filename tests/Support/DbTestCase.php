@@ -14,6 +14,7 @@ abstract class DbTestCase extends TestCase {
 		$this->db        = new FakeWpdb();
 		$GLOBALS['wpdb'] = $this->db; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
 		$this->db->exec_sql( 'CREATE TABLE wp_swapline_changes (id INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT, table_name TEXT, row_key TEXT, column_name TEXT, old_value TEXT, new_value TEXT, replacements INTEGER, truncated INTEGER)' );
+		update_option( 'swapline_db_version', '1' );
 		$this->db->exec_sql( 'CREATE TABLE wp_posts (ID INTEGER PRIMARY KEY, post_title TEXT, post_content TEXT)' );
 		$this->db->exec_sql( 'CREATE TABLE wp_options (option_id INTEGER PRIMARY KEY, option_name TEXT, option_value TEXT)' );
 	}

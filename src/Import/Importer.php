@@ -4,6 +4,7 @@
 namespace Swapline\Import;
 
 use Swapline\Backup\Storage;
+use Swapline\Clock;
 use Swapline\Database\Table;
 use Swapline\Database\Tables;
 use Swapline\Run\Cells;
@@ -40,6 +41,9 @@ final class Importer {
 	public static function start( string $path, bool $owned, ?array $replace, bool $preserve, string $source ) {
 		$previous = self::current();
 		if ( null !== $previous ) {
+			if ( Clock::is_recent( $previous ) && ( 'admin' !== $source || (int) $previous['user_id'] !== get_current_user_id() ) ) {
+				return new WP_Error( 'swapline_busy', __( 'Another import is running. Wait for it to finish, or try again in a few minutes.', 'swapline' ) );
+			}
 			self::cleanup( $previous );
 			Store::delete( self::JOB_OPTION );
 		}
@@ -191,12 +195,15 @@ final class Importer {
 	 * @return array<string, mixed>
 	 */
 	public static function run( array $job, ?callable $tick = null ): array {
+		self::save( $job );
 		while ( ! $job['done'] ) {
 			$job = self::step( $job, microtime( true ) + 5 );
+			self::save( $job );
 			if ( null !== $tick ) {
 				$tick( $job );
 			}
 		}
+		self::clear();
 		return $job;
 	}
 
@@ -212,6 +219,7 @@ final class Importer {
 	 * @param array<string, mixed> $job
 	 */
 	public static function save( array $job ): void {
+		$job['touched'] = time();
 		Store::set( self::JOB_OPTION, $job );
 	}
 

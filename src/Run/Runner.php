@@ -154,6 +154,30 @@ final class Runner {
 	 * @return array<string, mixed> The run summary.
 	 */
 	public static function finish( array $job, bool $cancelled = false ): array {
+		$run             = self::summary( $job, $cancelled ? 'cancelled' : 'complete' );
+		$run['finished'] = time();
+
+		History::add( $run );
+		do_action( 'swapline_after_run', $run );
+
+		return $run;
+	}
+
+	/**
+	 * Lists a job in the history while it runs, so its recorded cells survive and an interrupted
+	 * run can be found again.
+	 *
+	 * @param array<string, mixed> $job
+	 */
+	public static function checkpoint( array $job ): void {
+		History::add( self::summary( $job, 'running' ) );
+	}
+
+	/**
+	 * @param array<string, mixed> $job
+	 * @return array<string, mixed>
+	 */
+	private static function summary( array $job, string $status ): array {
 		$totals = self::empty_counts();
 		foreach ( $job['tables'] as $counts ) {
 			foreach ( $totals as $key => $value ) {
@@ -162,24 +186,19 @@ final class Runner {
 		}
 
 		$user = get_userdata( (int) $job['user_id'] );
-		$run  = array(
+		return array(
 			'id'        => $job['id'],
 			'started'   => $job['started'],
-			'finished'  => time(),
+			'finished'  => 0,
 			'user'      => $user ? $user->user_login : '',
 			'source'    => $job['source'],
-			'status'    => $cancelled ? 'cancelled' : 'complete',
+			'status'    => $status,
 			'config'    => Config::profile_fields( $job['config'] ),
 			'tables'    => $job['tables'],
 			'totals'    => $totals,
 			'recorded'  => $job['recorded'],
 			'truncated' => $totals['cells_changed'] > $job['recorded'],
 		);
-
-		History::add( $run );
-		do_action( 'swapline_after_run', $run );
-
-		return $run;
 	}
 
 	/**
@@ -217,6 +236,7 @@ final class Runner {
 	 * @param array<string, mixed> $job
 	 */
 	public static function save( array $job ): void {
+		$job['touched'] = time();
 		Store::set( self::JOB_OPTION, $job );
 	}
 

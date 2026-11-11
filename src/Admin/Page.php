@@ -7,6 +7,7 @@ use Swapline\Plugin;
 use Swapline\Run\Config;
 use Swapline\Run\History;
 use Swapline\Run\Profiles;
+use Swapline\Run\Runner;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -62,10 +63,11 @@ final class Page {
 			'swapline-admin',
 			'window.swaplineAdmin = ' . wp_json_encode(
 				array(
-					'ajaxUrl'  => admin_url( 'admin-ajax.php' ),
-					'nonces'   => $nonces,
-					'profiles' => (object) Profiles::all(),
-					'defaults' => Config::defaults(),
+					'ajaxUrl'    => admin_url( 'admin-ajax.php' ),
+					'nonces'     => $nonces,
+					'profiles'   => (object) Profiles::all(),
+					'defaults'   => Config::defaults(),
+					'unfinished' => Ajax::job_summary( Runner::current() ),
 				)
 			) . ';',
 			'before'
@@ -138,6 +140,14 @@ final class Page {
 		</div>
 
 		<div id="swapline-notice" class="notice inline hidden" role="status" aria-live="polite"><p></p></div>
+
+		<div id="swapline-resume" class="notice notice-warning inline hidden">
+			<p></p>
+			<p>
+				<button type="button" class="button button-primary" data-action="resume"><?php esc_html_e( 'Resume', 'swapline' ); ?></button>
+				<button type="button" class="button" data-action="stop"><?php esc_html_e( 'Stop and keep the record', 'swapline' ); ?></button>
+			</p>
+		</div>
 
 		<form id="swapline-form" novalidate>
 			<table class="form-table" role="presentation">
@@ -296,6 +306,8 @@ final class Page {
 							<?php echo esc_html( $run['config']['dry_run'] ? __( 'Dry run', 'swapline' ) : __( 'Live', 'swapline' ) ); ?>
 							<?php if ( 'cancelled' === $run['status'] ) : ?>
 								<br><span class="description"><?php esc_html_e( 'Cancelled', 'swapline' ); ?></span>
+							<?php elseif ( 'running' === $run['status'] ) : ?>
+								<br><span class="description"><?php esc_html_e( 'Unfinished', 'swapline' ); ?></span>
 							<?php endif; ?>
 						</td>
 						<td class="num"><?php echo esc_html( number_format_i18n( (int) $run['totals']['rows_matched'] ) ); ?></td>

@@ -2,6 +2,7 @@
 
 namespace Swapline\Admin;
 
+use Swapline\Clock;
 use Swapline\Plugin;
 use Swapline\Run\Config;
 use Swapline\Run\History;
@@ -12,7 +13,7 @@ defined( 'ABSPATH' ) || exit;
 
 final class Ajax {
 
-	public const ACTIONS = array( 'start', 'step', 'cancel', 'changes', 'profile_save', 'profile_delete' );
+	public const ACTIONS = array( 'start', 'step', 'cancel', 'status', 'changes', 'profile_save', 'profile_delete' );
 
 	private const CHANGES_PER_PAGE = 20;
 
@@ -59,8 +60,17 @@ final class Ajax {
 			wp_send_json_error( array( 'message' => __( 'Only an administrator can run on the users, usermeta and options tables.', 'swapline' ) ), 403 );
 		}
 
+		$previous = Runner::current();
+		if ( null !== $previous ) {
+			if ( Clock::is_recent( $previous ) && (int) $previous['user_id'] !== get_current_user_id() ) {
+				wp_send_json_error( array( 'message' => __( 'Another search and replace is running. Wait for it to finish, or try again in a few minutes.', 'swapline' ) ), 409 );
+			}
+			Runner::finish( $previous, true );
+		}
+
 		$job = Runner::start( $config, 'admin' );
 		Runner::save( $job );
+		Runner::checkpoint( $job );
 
 		wp_send_json_success( Runner::progress( $job ) );
 	}
@@ -86,7 +96,33 @@ final class Ajax {
 		}
 
 		Runner::save( $job );
+		Runner::checkpoint( $job );
 		wp_send_json_success( array( 'progress' => Runner::progress( $job ) ) );
+	}
+
+	public static function handle_status(): void {
+		self::guard( 'status' );
+
+		wp_send_json_success( array( 'job' => self::job_summary( Runner::current() ) ) );
+	}
+
+	/**
+	 * What the page needs to offer resuming a run that stopped part way.
+	 *
+	 * @param array<string, mixed>|null $job
+	 * @return array<string, mixed>|null
+	 */
+	public static function job_summary( ?array $job ): ?array {
+		if ( null === $job ) {
+			return null;
+		}
+		return array_merge(
+			Runner::progress( $job ),
+			array(
+				'dry_run' => (bool) $job['config']['dry_run'],
+				'search'  => (string) $job['config']['search'],
+			)
+		);
 	}
 
 	public static function handle_cancel(): void {
