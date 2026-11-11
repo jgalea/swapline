@@ -16,6 +16,7 @@ final class Config {
 	public const MIN_PAGE_SIZE     = 10;
 	public const MAX_PAGE_SIZE     = 50000;
 	public const DEFAULT_PAGE_SIZE = 1000;
+	public const MAX_PAIRS         = 50;
 
 	/**
 	 * @return array<string, mixed>
@@ -24,6 +25,7 @@ final class Config {
 		return array(
 			'search'           => '',
 			'replace'          => '',
+			'pairs'            => array(),
 			'tables'           => array(),
 			'case_insensitive' => false,
 			'regex'            => false,
@@ -48,6 +50,28 @@ final class Config {
 				$config[ $field ] = (string) $input[ $field ];
 			}
 		}
+		$pairs = array();
+		if ( isset( $input['pairs'] ) && is_array( $input['pairs'] ) ) {
+			foreach ( array_slice( $input['pairs'], 0, self::MAX_PAIRS ) as $pair ) {
+				if ( is_array( $pair ) && isset( $pair['search'] ) && is_scalar( $pair['search'] ) && '' !== (string) $pair['search'] ) {
+					$pairs[] = array(
+						'search'  => (string) $pair['search'],
+						'replace' => isset( $pair['replace'] ) && is_scalar( $pair['replace'] ) ? (string) $pair['replace'] : '',
+					);
+				}
+			}
+		}
+		if ( array() !== $pairs ) {
+			$config['search']  = $pairs[0]['search'];
+			$config['replace'] = $pairs[0]['replace'];
+		} elseif ( '' !== $config['search'] ) {
+			$pairs[] = array(
+				'search'  => $config['search'],
+				'replace' => $config['replace'],
+			);
+		}
+		$config['pairs'] = $pairs;
+
 		foreach ( array( 'case_insensitive', 'regex', 'skip_guid', 'dry_run' ) as $field ) {
 			if ( array_key_exists( $field, $input ) ) {
 				$config[ $field ] = rest_sanitize_boolean( $input[ $field ] );
@@ -80,10 +104,12 @@ final class Config {
 			return new WP_Error( 'swapline_empty_search', __( 'Enter something to search for.', 'swapline' ) );
 		}
 		if ( $config['regex'] ) {
-			$error = Replacer::regex_error( $config['search'] );
-			if ( null !== $error ) {
-				/* translators: %s: the PCRE error message. */
-				return new WP_Error( 'swapline_bad_regex', sprintf( __( 'The regular expression is not valid: %s', 'swapline' ), $error ) );
+			foreach ( $config['pairs'] as $pair ) {
+				$error = Replacer::regex_error( $pair['search'] );
+				if ( null !== $error ) {
+					/* translators: %s: the PCRE error message. */
+					return new WP_Error( 'swapline_bad_regex', sprintf( __( 'The regular expression is not valid: %s', 'swapline' ), $error ) );
+				}
 			}
 		}
 		if ( ! $require_tables ) {

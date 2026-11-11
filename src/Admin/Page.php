@@ -158,7 +158,14 @@ final class Page {
 				</tr>
 				<tr>
 					<th scope="row"><label for="swapline-replace"><?php esc_html_e( 'Replace with', 'swapline' ); ?></label></th>
-					<td><textarea id="swapline-replace" name="replace" class="large-text code" rows="2" spellcheck="false"></textarea></td>
+					<td>
+						<textarea id="swapline-replace" name="replace" class="large-text code" rows="2" spellcheck="false"></textarea>
+						<div id="swapline-extra-pairs"></div>
+						<p>
+							<button type="button" class="button" id="swapline-add-pair"><?php esc_html_e( 'Add another pair', 'swapline' ); ?></button>
+							<span class="description"><?php esc_html_e( 'Pairs run in order, each on the result of the one before.', 'swapline' ); ?></span>
+						</p>
+					</td>
 				</tr>
 				<tr>
 					<th scope="row"><?php esc_html_e( 'Tables', 'swapline' ); ?></th>
@@ -327,7 +334,22 @@ final class Page {
 							<br><span class="description"><?php echo esc_html( trim( $run['user'] . ' · ' . $run['source'], ' ·' ) ); ?></span>
 						</td>
 						<td><code><?php echo esc_html( self::excerpt( (string) $run['config']['search'] ) ); ?></code></td>
-						<td><code><?php echo esc_html( self::excerpt( (string) $run['config']['replace'] ) ); ?></code></td>
+						<td>
+							<code><?php echo esc_html( self::excerpt( (string) $run['config']['replace'] ) ); ?></code>
+							<?php if ( count( (array) ( $run['config']['pairs'] ?? array() ) ) > 1 ) : ?>
+								<br><span class="description">
+									<?php
+									echo esc_html(
+										sprintf(
+											/* translators: %s: number of extra search and replace pairs. */
+											_n( '+ %s more pair', '+ %s more pairs', count( $run['config']['pairs'] ) - 1, 'swapline' ),
+											number_format_i18n( count( $run['config']['pairs'] ) - 1 )
+										)
+									);
+									?>
+								</span>
+							<?php endif; ?>
+						</td>
 						<td>
 							<?php echo esc_html( $run['config']['dry_run'] ? __( 'Dry run', 'swapline' ) : __( 'Live', 'swapline' ) ); ?>
 							<?php if ( 'cancelled' === $run['status'] ) : ?>

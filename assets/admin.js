@@ -297,10 +297,50 @@
 			$( '.swapline-regex-help', form ).classList.toggle( 'hidden', ! form.elements.regex.checked );
 		}
 
+		const extraPairs = $( '#swapline-extra-pairs' );
+
+		function addPair( search = '', replace = '' ) {
+			const n = extraPairs.children.length + 2;
+			const box = el( 'fieldset', { className: 'swapline-pair' }, [
+				el( 'legend', {
+					/* translators: %s: pair number. */
+					text: sprintf( __( 'Pair %s', 'swapline' ), number( n ) ),
+				} ),
+			] );
+			const fields = [ [ __( 'Search for', 'swapline' ), search, 'search' ], [ __( 'Replace with', 'swapline' ), replace, 'replace' ] ].map( ( [ label, value, name ], i ) => {
+				const id = 'swapline-pair-' + n + '-' + name;
+				const textarea = el( 'textarea', { id, className: 'large-text code', rows: '2', spellcheck: 'false', 'data-pair': name } );
+				textarea.value = value;
+				return el( 'p', {}, [ el( 'label', { for: id, text: label } ), el( 'br' ), textarea ] );
+			} );
+			const remove = el( 'button', { type: 'button', className: 'button button-link-delete', text: __( 'Remove this pair', 'swapline' ) } );
+			remove.addEventListener( 'click', () => {
+				box.remove();
+				$$( '.swapline-pair legend', extraPairs ).forEach( ( legend, i ) => ( legend.textContent = sprintf( __( 'Pair %s', 'swapline' ), number( i + 2 ) ) ) );
+			} );
+			fields.forEach( ( field ) => box.append( field ) );
+			box.append( remove );
+			extraPairs.append( box );
+		}
+
+		$( '#swapline-add-pair' ).addEventListener( 'click', () => {
+			addPair();
+			$( '.swapline-pair:last-child textarea', extraPairs ).focus();
+		} );
+
+		function readPairs() {
+			const pairs = [ { search: form.elements.search.value, replace: form.elements.replace.value } ];
+			$$( '.swapline-pair', extraPairs ).forEach( ( box ) => {
+				pairs.push( { search: $( '[data-pair="search"]', box ).value, replace: $( '[data-pair="replace"]', box ).value } );
+			} );
+			return pairs.filter( ( pair ) => '' !== pair.search );
+		}
+
 		function readConfig() {
 			return {
 				search: form.elements.search.value,
 				replace: form.elements.replace.value,
+				pairs: readPairs(),
 				tables: boxes()
 					.filter( ( box ) => box.checked )
 					.map( ( box ) => box.value ),
@@ -316,8 +356,11 @@
 
 		function applyConfig( config ) {
 			const merged = Object.assign( {}, data.defaults, config );
-			form.elements.search.value = merged.search;
-			form.elements.replace.value = merged.replace;
+			const pairs = merged.pairs && merged.pairs.length ? merged.pairs : [ { search: merged.search, replace: merged.replace } ];
+			form.elements.search.value = pairs[ 0 ].search;
+			form.elements.replace.value = pairs[ 0 ].replace;
+			extraPairs.replaceChildren();
+			pairs.slice( 1 ).forEach( ( pair ) => addPair( pair.search, pair.replace ) );
 			[ 'case_insensitive', 'regex', 'skip_guid', 'dry_run' ].forEach( ( key ) => ( form.elements[ key ].checked = !! merged[ key ] ) );
 			form.elements.columns.value = [].concat( merged.columns || [] ).join( ', ' );
 			form.elements.skip_columns.value = [].concat( merged.skip_columns || [] ).join( ', ' );

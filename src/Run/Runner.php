@@ -3,7 +3,6 @@
 namespace Swapline\Run;
 
 use Swapline\Database\Table;
-use Swapline\Engine\Replacer;
 use Swapline\Store;
 
 defined( 'ABSPATH' ) || exit;
@@ -80,7 +79,7 @@ final class Runner {
 		$limit   = (int) $config['page_size'];
 		$rows    = array() === $columns ? array() : $table->fetch( $columns, Table::KEY_NONE === $table->key_type ? $job['offset'] : $job['cursor'], $limit, (bool) $config['dry_run'] );
 
-		$engine = new Replacer( (string) $config['search'], (string) $config['replace'], (bool) $config['case_insensitive'], (bool) $config['regex'] );
+		$engine = Cells::engine( $config );
 		$counts = $job['tables'][ $name ];
 		$cap    = (int) ( $job['record_cap'] ?? History::max_recorded_changes() );
 
