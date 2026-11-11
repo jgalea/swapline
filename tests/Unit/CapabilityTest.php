@@ -4,8 +4,11 @@ namespace Swapline\Tests\Unit;
 
 use Swapline\Admin\Ajax;
 use Swapline\Admin\BackupAjax;
+use Swapline\Admin\Page;
 use Swapline\Plugin;
+use Swapline\Run\Config;
 use Swapline\Run\History;
+use Swapline\Run\Runner;
 use Swapline\Tests\Support\DbTestCase;
 use Swapline_Test_Json_Exit;
 
@@ -149,6 +152,52 @@ final class CapabilityTest extends DbTestCase {
 		);
 
 		$this->assertTrue( $this->refused( array( Ajax::class, 'handle_start' ) )->success );
+	}
+
+	/**
+	 * @param string[] $tables
+	 * @return array<string, mixed>
+	 */
+	private function admin_job( array $tables ): array {
+		$GLOBALS['swapline_test']['user'] = 1;
+		$config                           = Config::from_input(
+			array(
+				'search'  => 'secret-licence-key',
+				'replace' => 'new-key',
+				'tables'  => $tables,
+				'dry_run' => false,
+			)
+		);
+		$job                              = Runner::start( $config, 'admin' );
+		Runner::save( $job );
+		Runner::checkpoint( $job );
+		$GLOBALS['swapline_test']['user'] = 2;
+		return $job;
+	}
+
+	public function test_a_delegated_role_does_not_see_history_rows_or_unfinished_jobs_on_protected_tables(): void {
+		$job = $this->admin_job( array( 'wp_options' ) );
+		History::add( Runner::finish( $this->admin_job( array( 'wp_options' ) ) ) );
+
+		$this->assertNull( Ajax::job_summary( $job ) );
+
+		ob_start();
+		Page::render_history();
+		$html = (string) ob_get_clean();
+		$this->assertStringNotContainsString( 'secret-licence-key', $html );
+		$this->assertStringNotContainsString( 'wp_options', $html );
+
+		$GLOBALS['swapline_test']['caps'][] = 'manage_options';
+		$this->assertNotNull( Ajax::job_summary( $job ) );
+		ob_start();
+		Page::render_history();
+		$this->assertStringContainsString( 'secret-licence-key', (string) ob_get_clean() );
+	}
+
+	public function test_a_delegated_role_still_sees_runs_on_other_tables(): void {
+		$job = $this->admin_job( array( 'wp_posts' ) );
+
+		$this->assertNotNull( Ajax::job_summary( $job ) );
 	}
 
 	public function test_protected_tables_are_the_accounts_tables(): void {

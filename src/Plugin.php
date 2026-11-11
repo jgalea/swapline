@@ -71,6 +71,15 @@ final class Plugin {
 	}
 
 	/**
+	 * Whether the current user may see a run that touched these tables.
+	 *
+	 * @param string[] $tables
+	 */
+	public static function can_see_tables( array $tables ): bool {
+		return current_user_can( self::database_capability() ) || array() === self::protected_tables( $tables );
+	}
+
+	/**
 	 * @param string[] $links
 	 * @return string[]
 	 */

@@ -119,7 +119,7 @@ final class Ajax {
 	 * @return array<string, mixed>|null
 	 */
 	public static function job_summary( ?array $job ): ?array {
-		if ( null === $job ) {
+		if ( null === $job || ! Plugin::can_see_tables( (array) $job['config']['tables'] ) ) {
 			return null;
 		}
 		return array_merge(

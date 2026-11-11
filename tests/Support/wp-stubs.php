@@ -129,6 +129,15 @@ function wp_die( $message = '', $title = '', $args = array() ) {
 function esc_html( $text ) {
 	return $text;
 }
+function esc_html_e( $text ) {
+	echo $text; // phpcs:ignore WordPress.Security.EscapeOutput
+}
+function esc_attr( $text ) {
+	return $text;
+}
+function wp_date( $format, $time = null ) {
+	return gmdate( $format, (int) $time );
+}
 function wp_upload_dir( $time = null, $create = true ) {
 	$base = $GLOBALS['swapline_test']['uploads'] ?? sys_get_temp_dir() . '/swapline-test-uploads';
 	return array(

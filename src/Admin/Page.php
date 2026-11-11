@@ -291,7 +291,7 @@ final class Page {
 	}
 
 	public static function render_history(): void {
-		$runs    = History::runs();
+		$runs    = array_values( array_filter( History::runs(), static fn( array $run ): bool => Plugin::can_see_tables( array_keys( (array) $run['tables'] ) ) ) );
 		$restore = current_user_can( Plugin::database_capability() ) && ! Tables::uses_sqlite();
 		?>
 		<div id="swapline-notice" class="notice inline hidden" role="status" aria-live="polite"><p></p></div>
