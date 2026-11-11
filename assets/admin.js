@@ -65,24 +65,15 @@
 
 		const totals = run.totals;
 		const dry = run.config.dry_run;
-		let summary;
-		if ( dry ) {
-			summary = sprintf(
-				/* translators: 1: cells, 2: rows, 3: replacements. */
-				__( 'Dry run: %1$s cells in %2$s rows would change (%3$s replacements). Nothing was written.', 'swapline' ),
-				number( totals.cells_changed ),
-				number( totals.rows_matched ),
-				number( totals.replacements )
-			);
-		} else {
-			summary = sprintf(
-				/* translators: 1: cells, 2: rows, 3: replacements. */
-				__( '%1$s cells in %2$s rows were changed (%3$s replacements).', 'swapline' ),
-				number( totals.cells_changed ),
-				number( totals.rows_matched ),
-				number( totals.replacements )
-			);
-		}
+		/* translators: %s: number of cells. */
+		const cells = sprintf( _n( '%s cell', '%s cells', totals.cells_changed, 'swapline' ), number( totals.cells_changed ) );
+		/* translators: %s: number of rows. */
+		const rows = sprintf( _n( '%s row', '%s rows', totals.rows_matched, 'swapline' ), number( totals.rows_matched ) );
+		/* translators: %s: number of replacements. */
+		const replacements = sprintf( _n( '%s replacement', '%s replacements', totals.replacements, 'swapline' ), number( totals.replacements ) );
+		let summary = dry
+			? /* translators: 1: cells, 2: rows, 3: replacements, such as "3 cells". */ sprintf( __( 'Dry run: %1$s in %2$s would change (%3$s). Nothing was written.', 'swapline' ), cells, rows, replacements )
+			: /* translators: 1: cells, 2: rows, 3: replacements, such as "3 cells". */ sprintf( __( '%1$s in %2$s changed (%3$s).', 'swapline' ), cells, rows, replacements );
 		if ( 'cancelled' === run.status ) {
 			summary += ' ' + __( 'The run was cancelled before it finished.', 'swapline' );
 		}
