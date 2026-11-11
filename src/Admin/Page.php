@@ -326,6 +326,11 @@ final class Page {
 						<td class="num"><?php echo esc_html( number_format_i18n( (int) $run['totals']['cells_changed'] ) ); ?></td>
 						<td class="swapline-actions">
 							<button type="button" class="button" data-run="<?php echo esc_attr( $run['id'] ); ?>"><?php esc_html_e( 'View changes', 'swapline' ); ?></button>
+							<?php if ( empty( $run['config']['dry_run'] ) && 'running' !== $run['status'] && empty( $run['undone'] ) && empty( $run['truncated'] ) && (int) $run['totals']['cells_changed'] > 0 ) : ?>
+								<button type="button" class="button" data-undo="<?php echo esc_attr( $run['id'] ); ?>"><?php esc_html_e( 'Undo this run', 'swapline' ); ?></button>
+							<?php elseif ( ! empty( $run['undone'] ) ) : ?>
+								<span class="description"><?php esc_html_e( 'Undone', 'swapline' ); ?></span>
+							<?php endif; ?>
 							<?php if ( $restore && ! empty( $run['backup'] ) && null !== Storage::path( (string) $run['backup'], 'backup' ) && is_file( (string) Storage::path( (string) $run['backup'], 'backup' ) ) ) : ?>
 								<button type="button" class="button" data-restore="<?php echo esc_attr( $run['backup'] ); ?>" data-created="<?php echo esc_attr( self::date( (int) $run['started'] ) ); ?>"><?php esc_html_e( 'Restore backup from before this run', 'swapline' ); ?></button>
 							<?php endif; ?>

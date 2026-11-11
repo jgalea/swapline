@@ -184,6 +184,66 @@ final class Api {
 	}
 
 	/**
+	 * Puts back the before value of every cell a live run changed. Only cells that still hold the value the
+	 * run wrote are touched, so edits made since stay. Refused when the history doesn't hold the run in full.
+	 *
+	 * @return array{restored: int, changed_since: int, missing: int}|WP_Error
+	 */
+	public static function undo( string $run_id ) {
+		History::maybe_install();
+		$run = History::find( $run_id );
+		if ( null === $run ) {
+			return new WP_Error( 'swapline_undo_missing', __( 'That run is no longer in the history.', 'swapline' ) );
+		}
+		if ( ! empty( $run['config']['dry_run'] ) || 'running' === ( $run['status'] ?? '' ) || ! empty( $run['undone'] ) ) {
+			return new WP_Error( 'swapline_undo_unavailable', __( 'This run has nothing to undo.', 'swapline' ) );
+		}
+
+		$recorded = self::changes( $run_id );
+		if ( ! $recorded['complete'] ) {
+			return new WP_Error( 'swapline_undo_incomplete', __( 'The history does not hold every change of this run, so it cannot be undone cell by cell. Restore the backup taken before it instead.', 'swapline' ) );
+		}
+
+		$current = self::read_cells( $recorded['cells'] );
+		if ( is_wp_error( $current ) ) {
+			return $current;
+		}
+
+		$write = array();
+		$out   = array(
+			'restored'      => 0,
+			'changed_since' => 0,
+			'missing'       => 0,
+		);
+		foreach ( $recorded['cells'] as $i => $cell ) {
+			if ( null === $current[ $i ] ) {
+				++$out['missing'];
+			} elseif ( $current[ $i ] !== $cell['after'] ) {
+				++$out['changed_since'];
+			} else {
+				$write[] = array(
+					'table'  => $cell['table'],
+					'row'    => $cell['row'],
+					'column' => $cell['column'],
+					'value'  => $cell['before'],
+				);
+			}
+		}
+
+		$written = self::write_cells( $write );
+		if ( is_wp_error( $written ) ) {
+			return $written;
+		}
+		$out['restored'] = $written['written'];
+		$out['missing'] += $written['missing'];
+
+		$run['undone'] = time();
+		History::add( $run );
+
+		return $out;
+	}
+
+	/**
 	 * The current value of each cell, addressed as in changes(): null where the row is gone.
 	 *
 	 * @param array<int, array{table: string, row: array<string, string|null>, column: string}> $cells

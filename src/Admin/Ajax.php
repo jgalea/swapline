@@ -2,6 +2,7 @@
 
 namespace Swapline\Admin;
 
+use Swapline\Api;
 use Swapline\Backup\Storage;
 use Swapline\Clock;
 use Swapline\Plugin;
@@ -14,7 +15,7 @@ defined( 'ABSPATH' ) || exit;
 
 final class Ajax {
 
-	public const ACTIONS = array( 'start', 'step', 'cancel', 'status', 'changes', 'profile_save', 'profile_delete' );
+	public const ACTIONS = array( 'start', 'step', 'cancel', 'status', 'changes', 'undo', 'profile_save', 'profile_delete' );
 
 	private const CHANGES_PER_PAGE = 20;
 
@@ -188,6 +189,24 @@ final class Ajax {
 				'items' => $items,
 			)
 		);
+	}
+
+	public static function handle_undo(): void {
+		self::guard( 'undo' );
+
+		$run = History::find( self::post_string( 'run' ) );
+		if ( null === $run ) {
+			wp_send_json_error( array( 'message' => __( 'That run is no longer in the history.', 'swapline' ) ), 404 );
+		}
+		if ( array() !== Plugin::protected_tables( array_keys( $run['tables'] ) ) && ! current_user_can( Plugin::database_capability() ) ) {
+			wp_send_json_error( array( 'message' => __( 'Only an administrator can undo a run on the users, usermeta and options tables.', 'swapline' ) ), 403 );
+		}
+
+		$result = Api::undo( (string) $run['id'] );
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ), 409 );
+		}
+		wp_send_json_success( $result );
 	}
 
 	public static function handle_profile_save(): void {

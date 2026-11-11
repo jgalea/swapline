@@ -650,6 +650,44 @@
 		);
 	}
 
+	function initUndo() {
+		$$( '[data-undo]' ).forEach( ( button ) =>
+			button.addEventListener( 'click', async () => {
+				if ( ! window.confirm( __( 'Put back the original value of every cell this run changed? Cells edited since are left as they are.', 'swapline' ) ) ) {
+					return;
+				}
+				button.disabled = true;
+				notice( '', '' );
+				try {
+					const result = await post( 'undo', { run: button.dataset.undo } );
+					const message = sprintf(
+						/* translators: %s: number of cells. */
+						_n( '%s cell was put back.', '%s cells were put back.', result.restored, 'swapline' ),
+						number( result.restored )
+					);
+					const skipped = result.changed_since + result.missing;
+					notice(
+						skipped ? 'warning' : 'success',
+						skipped
+							? message +
+									' ' +
+									sprintf(
+										/* translators: %s: number of cells. */
+										_n( '%s cell was left alone because it changed since or its row is gone.', '%s cells were left alone because they changed since or their rows are gone.', skipped, 'swapline' ),
+										number( skipped )
+									)
+							: message
+					);
+					button.replaceWith( el( 'span', { className: 'description', text: __( 'Undone', 'swapline' ) } ) );
+				} catch ( e ) {
+					button.disabled = false;
+					notice( 'error', e.message );
+				}
+			} )
+		);
+	}
+
 	initForm();
 	initHistory();
+	initUndo();
 } )();
