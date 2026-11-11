@@ -194,17 +194,20 @@ final class Statement {
 		$this->sql  = $sql;
 	}
 
-	public static function parse( string $raw, string $prefix ): self {
+	/**
+	 * @param string[] $foreign Prefixes of other installs in the same database, whose tables are refused.
+	 */
+	public static function parse( string $raw, string $prefix, array $foreign = array() ): self {
 		$sql = self::normalize( $raw );
 
 		if ( '' === $sql ) {
 			return new self( self::EMPTY, $sql );
 		}
 		if ( preg_match( '/^DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?' . self::IDENT . '\s*$/i', $sql, $m, PREG_OFFSET_CAPTURE ) ) {
-			return self::with_table( self::DROP, $sql, $m[1], $prefix );
+			return self::with_table( self::DROP, $sql, $m[1], $prefix, $foreign );
 		}
 		if ( preg_match( '/^CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?' . self::IDENT . '\s*\(/i', $sql, $m, PREG_OFFSET_CAPTURE ) ) {
-			$statement = self::with_table( self::CREATE, $sql, $m[1], $prefix );
+			$statement = self::with_table( self::CREATE, $sql, $m[1], $prefix, $foreign );
 			if ( self::REJECT !== $statement->type ) {
 				$reason = self::create_problem( $sql, strlen( $m[0][0] ) - 1 );
 				if ( null !== $reason ) {
@@ -217,7 +220,7 @@ final class Statement {
 			if ( ! self::literal_values( (string) substr( $sql, strlen( $m[0][0] ) ) ) ) {
 				return self::reject( $sql, 'INSERT values must be literals.' );
 			}
-			return self::with_table( self::INSERT, $sql, $m[1], $prefix );
+			return self::with_table( self::INSERT, $sql, $m[1], $prefix, $foreign );
 		}
 		if ( preg_match( '/^(?:LOCK\s+TABLES?\s+\S|UNLOCK\s+TABLES?$)/i', $sql ) ) {
 			return new self( self::SKIP, $sql );
@@ -329,8 +332,9 @@ final class Statement {
 
 	/**
 	 * @param array{0: string, 1: int} $found
+	 * @param string[]                 $foreign
 	 */
-	private static function with_table( string $type, string $sql, array $found, string $prefix ): self {
+	private static function with_table( string $type, string $sql, array $found, string $prefix, array $foreign ): self {
 		$table = self::unquote( $found[0] );
 
 		if ( ! preg_match( '/^[A-Za-z0-9_$-]{1,64}$/', $table ) ) {
@@ -338,6 +342,12 @@ final class Statement {
 		}
 		if ( '' === $prefix || 0 !== strpos( $table, $prefix ) ) {
 			return self::reject( $sql, sprintf( 'The table %s does not use this site\'s table prefix.', $table ) );
+		}
+
+		foreach ( $foreign as $other ) {
+			if ( 0 === strpos( $table, $other ) ) {
+				return self::reject( $sql, sprintf( 'The table %s belongs to another WordPress install in this database.', $table ) );
+			}
 		}
 
 		$statement               = new self( $type, $sql );

@@ -174,3 +174,6 @@ function wp_remote_head( $url, $args = array() ) {
 function wp_remote_retrieve_response_code( $response ) {
 	return $response['code'] ?? 0;
 }
+function get_main_site_id() {
+	return 1;
+}

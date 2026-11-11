@@ -449,6 +449,7 @@ final class Importer {
 
 		$splitter   = new Splitter( $file, self::CHUNK );
 		$prefix     = $GLOBALS['wpdb']->base_prefix;
+		$foreign    = Tables::foreign_prefixes();
 		$job['eof'] = false;
 
 		do {
@@ -457,7 +458,7 @@ final class Importer {
 				$job['eof'] = true;
 				break;
 			}
-			$job           = $handle( Statement::parse( $raw, $prefix ), $job );
+			$job           = $handle( Statement::parse( $raw, $prefix, $foreign ), $job );
 			$job['offset'] = $splitter->offset();
 		} while ( microtime( true ) < $deadline );
 

@@ -22,13 +22,14 @@ final class Tables {
 		);
 
 		$excluded = (array) apply_filters( 'swapline_excluded_tables', array( History::table() ) );
+		$foreign  = self::foreign_in( array_column( (array) $rows, 'Name' ) );
 		$core     = self::core_names();
 		$tables   = array();
 		$global   = is_multisite() ? array_values( $wpdb->tables( 'global', true ) ) : array();
 
 		foreach ( (array) $rows as $row ) {
 			$name = (string) $row['Name'];
-			if ( empty( $row['Engine'] ) || in_array( $name, $excluded, true ) || self::is_scratch( $name ) ) {
+			if ( empty( $row['Engine'] ) || in_array( $name, $excluded, true ) || self::is_scratch( $name ) || self::has_prefix( $name, $foreign ) ) {
 				continue;
 			}
 			$tables[ $name ] = array(
@@ -66,6 +67,57 @@ final class Tables {
 		}
 
 		return array_values( $valid );
+	}
+
+	/**
+	 * Prefixes of other WordPress installs that share this database and begin with this site's prefix,
+	 * such as wp_dev_ next to wp_. An install shows up as a longer prefix that has its own options, posts
+	 * and postmeta tables. On multisite, wp_2_ is a subsite of this network, not another install.
+	 *
+	 * @return string[]
+	 */
+	public static function foreign_prefixes(): array {
+		global $wpdb;
+
+		return self::foreign_in( (array) $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $wpdb->base_prefix ) . '%' ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	}
+
+	/**
+	 * @param string[] $prefixes
+	 */
+	public static function has_prefix( string $name, array $prefixes ): bool {
+		foreach ( $prefixes as $prefix ) {
+			if ( 0 === strpos( $name, $prefix ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * @param string[] $names
+	 * @return string[]
+	 */
+	private static function foreign_in( array $names ): array {
+		global $wpdb;
+
+		$present = array_flip( $names );
+		$found   = array();
+		foreach ( $names as $name ) {
+			$name = (string) $name;
+			if ( 'options' !== substr( $name, -7 ) ) {
+				continue;
+			}
+			$prefix = substr( $name, 0, -7 );
+			$extra  = substr( $prefix, strlen( $wpdb->base_prefix ) );
+			if ( '' === $extra || ( is_multisite() && 1 === preg_match( '/^[0-9]+_$/', $extra ) ) ) {
+				continue;
+			}
+			if ( isset( $present[ $prefix . 'posts' ], $present[ $prefix . 'postmeta' ] ) ) {
+				$found[] = $prefix;
+			}
+		}
+		return $found;
 	}
 
 	/**
