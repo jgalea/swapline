@@ -30,6 +30,6 @@ abstract class DbTestCase extends TestCase {
 	 * @return array<int, array<string, mixed>>
 	 */
 	protected function rows( string $table ): array {
-		return $this->db->pdo->query( "SELECT * FROM `{$table}` ORDER BY rowid" )->fetchAll( \PDO::FETCH_ASSOC );
+		return $this->db->pdo->query( "SELECT * FROM `{$table}` ORDER BY rowid" )->fetchAll( \PDO::FETCH_ASSOC ); // phpcs:ignore WordPress.DB.RestrictedClasses.mysql__PDO -- SQLite test database.
 	}
 }
