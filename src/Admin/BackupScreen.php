@@ -298,6 +298,14 @@ final class BackupScreen {
 				<label for="<?php echo esc_attr( $id ); ?>-replace"><?php esc_html_e( 'Replace with', 'swapline' ); ?></label><br>
 				<textarea id="<?php echo esc_attr( $id ); ?>-replace" name="replace" class="large-text code" rows="2" spellcheck="false"></textarea>
 			</p>
+			<p>
+				<label for="<?php echo esc_attr( $id ); ?>-columns"><?php esc_html_e( 'Only these columns', 'swapline' ); ?></label><br>
+				<input type="text" id="<?php echo esc_attr( $id ); ?>-columns" name="columns" class="regular-text code" placeholder="post_content, meta_value" spellcheck="false">
+			</p>
+			<p>
+				<label for="<?php echo esc_attr( $id ); ?>-skip-columns"><?php esc_html_e( 'Skip these columns', 'swapline' ); ?></label><br>
+				<input type="text" id="<?php echo esc_attr( $id ); ?>-skip-columns" name="skip_columns" class="regular-text code" spellcheck="false">
+			</p>
 			<fieldset>
 				<legend class="screen-reader-text"><?php esc_html_e( 'Options', 'swapline' ); ?></legend>
 				<label><input type="checkbox" name="case_insensitive" value="1"> <?php esc_html_e( 'Case-insensitive', 'swapline' ); ?></label><br>

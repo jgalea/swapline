@@ -490,7 +490,7 @@ final class Importer {
 			}
 
 			$table   = new Table( $job['tables'][ $name ] );
-			$columns = $table->text_columns( (bool) $job['replace']['skip_guid'] );
+			$columns = $table->text_columns( (bool) $job['replace']['skip_guid'], (array) ( $job['replace']['columns'] ?? array() ), (array) ( $job['replace']['skip_columns'] ?? array() ) );
 			$rows    = array() === $columns ? array() : $table->fetch( $columns, Table::KEY_NONE === $table->key_type ? $state['offset'] : $state['cursor'], $limit );
 
 			foreach ( $rows as $row ) {

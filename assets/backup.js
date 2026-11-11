@@ -85,6 +85,8 @@
 			case_insensitive: form.elements.case_insensitive.checked,
 			regex: form.elements.regex.checked,
 			skip_guid: form.elements.skip_guid.checked,
+			columns: form.elements.columns.value,
+			skip_columns: form.elements.skip_columns.value,
 		};
 	}
 

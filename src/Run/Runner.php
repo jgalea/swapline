@@ -76,7 +76,7 @@ final class Runner {
 			$job['table_rows'] = $table->count_rows();
 		}
 
-		$columns = $table->text_columns( (bool) $config['skip_guid'] );
+		$columns = $table->text_columns( (bool) $config['skip_guid'], (array) ( $config['columns'] ?? array() ), (array) ( $config['skip_columns'] ?? array() ) );
 		$limit   = (int) $config['page_size'];
 		$rows    = array() === $columns ? array() : $table->fetch( $columns, Table::KEY_NONE === $table->key_type ? $job['offset'] : $job['cursor'], $limit, (bool) $config['dry_run'] );
 

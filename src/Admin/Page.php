@@ -227,6 +227,20 @@ final class Page {
 					</td>
 				</tr>
 				<tr>
+					<th scope="row"><label for="swapline-columns"><?php esc_html_e( 'Columns', 'swapline' ); ?></label></th>
+					<td>
+						<p>
+							<label for="swapline-columns"><?php esc_html_e( 'Only these columns', 'swapline' ); ?></label><br>
+							<input type="text" id="swapline-columns" name="columns" class="regular-text code" placeholder="post_content, meta_value" spellcheck="false">
+						</p>
+						<p>
+							<label for="swapline-skip-columns"><?php esc_html_e( 'Skip these columns', 'swapline' ); ?></label><br>
+							<input type="text" id="swapline-skip-columns" name="skip_columns" class="regular-text code" placeholder="post_password" spellcheck="false">
+						</p>
+						<p class="description"><?php esc_html_e( 'Separate column names with commas. Leave both empty to search every text column.', 'swapline' ); ?></p>
+					</td>
+				</tr>
+				<tr>
 					<th scope="row"><label for="swapline-page-size"><?php esc_html_e( 'Max page size', 'swapline' ); ?></label></th>
 					<td>
 						<input type="number" id="swapline-page-size" name="page_size" class="small-text" min="<?php echo esc_attr( (string) Config::MIN_PAGE_SIZE ); ?>" max="<?php echo esc_attr( (string) Config::MAX_PAGE_SIZE ); ?>" step="1" value="<?php echo esc_attr( (string) Config::DEFAULT_PAGE_SIZE ); ?>">

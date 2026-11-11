@@ -307,6 +307,8 @@
 				case_insensitive: form.elements.case_insensitive.checked,
 				regex: form.elements.regex.checked,
 				skip_guid: form.elements.skip_guid.checked,
+				columns: form.elements.columns.value,
+				skip_columns: form.elements.skip_columns.value,
 				dry_run: form.elements.dry_run.checked,
 				page_size: parseInt( form.elements.page_size.value, 10 ) || data.defaults.page_size,
 			};
@@ -317,6 +319,8 @@
 			form.elements.search.value = merged.search;
 			form.elements.replace.value = merged.replace;
 			[ 'case_insensitive', 'regex', 'skip_guid', 'dry_run' ].forEach( ( key ) => ( form.elements[ key ].checked = !! merged[ key ] ) );
+			form.elements.columns.value = [].concat( merged.columns || [] ).join( ', ' );
+			form.elements.skip_columns.value = [].concat( merged.skip_columns || [] ).join( ', ' );
 			form.elements.page_size.value = merged.page_size;
 			const wanted = new Set( merged.tables || [] );
 			boxes().forEach( ( box ) => ( box.checked = wanted.has( box.value ) ) );

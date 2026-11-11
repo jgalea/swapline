@@ -93,12 +93,19 @@ final class Table {
 	/**
 	 * Text columns that may be rewritten.
 	 *
+	 * @param string[] $only Limit to these columns when not empty.
+	 * @param string[] $skip Leave these columns out.
 	 * @return string[]
 	 */
-	public function text_columns( bool $skip_guid ): array {
-		$out = array();
+	public function text_columns( bool $skip_guid, array $only = array(), array $skip = array() ): array {
+		$only = array_map( 'strtolower', $only );
+		$skip = array_map( 'strtolower', $skip );
+		$out  = array();
 		foreach ( $this->columns as $name => $type ) {
 			if ( in_array( $name, $this->key, true ) || in_array( $name, $this->generated, true ) || ( $skip_guid && 'guid' === strtolower( $name ) ) ) {
+				continue;
+			}
+			if ( ( array() !== $only && ! in_array( strtolower( $name ), $only, true ) ) || in_array( strtolower( $name ), $skip, true ) ) {
 				continue;
 			}
 			if ( preg_match( '/char|text|json/', $type ) ) {

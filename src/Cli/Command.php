@@ -47,6 +47,12 @@ final class Command {
 	 * [--include-guid]
 	 * : Also replace in guid columns, which are skipped by default.
 	 *
+	 * [--columns=<columns>]
+	 * : Comma-separated column names. Only these columns are searched.
+	 *
+	 * [--skip-columns=<columns>]
+	 * : Comma-separated column names to leave out.
+	 *
 	 * [--page-size=<rows>]
 	 * : Rows read per batch.
 	 * ---
@@ -118,6 +124,14 @@ final class Command {
 		}
 		if ( WP_CLI\Utils\get_flag_value( $assoc_args, 'include-guid', false ) ) {
 			$input['skip_guid'] = false;
+		}
+		foreach ( array(
+			'columns'      => 'columns',
+			'skip-columns' => 'skip_columns',
+		) as $flag => $field ) {
+			if ( isset( $assoc_args[ $flag ] ) ) {
+				$input[ $field ] = (string) $assoc_args[ $flag ];
+			}
 		}
 		if ( isset( $assoc_args['page-size'] ) && ! isset( $assoc_args['profile'] ) ) {
 			$input['page_size'] = (int) $assoc_args['page-size'];
@@ -205,6 +219,12 @@ final class Command {
 	 * [--include-guid]
 	 * : Also replace in guid columns.
 	 *
+	 * [--columns=<columns>]
+	 * : Comma-separated column names. Only these columns are searched.
+	 *
+	 * [--skip-columns=<columns>]
+	 * : Comma-separated column names to leave out.
+	 *
 	 * [--porcelain]
 	 * : Print only the path of the backup.
 	 *
@@ -257,6 +277,12 @@ final class Command {
 	 *
 	 * [--include-guid]
 	 * : Also replace in guid columns.
+	 *
+	 * [--columns=<columns>]
+	 * : Comma-separated column names. Only these columns are searched.
+	 *
+	 * [--skip-columns=<columns>]
+	 * : Comma-separated column names to leave out.
 	 *
 	 * [--keep-url]
 	 * : Keep this site's siteurl and home instead of the values in the file.
@@ -371,6 +397,8 @@ final class Command {
 				'case_insensitive' => (bool) WP_CLI\Utils\get_flag_value( $assoc_args, 'case-insensitive', false ),
 				'regex'            => (bool) WP_CLI\Utils\get_flag_value( $assoc_args, 'regex', false ),
 				'skip_guid'        => ! WP_CLI\Utils\get_flag_value( $assoc_args, 'include-guid', false ),
+				'columns'          => (string) ( $assoc_args['columns'] ?? '' ),
+				'skip_columns'     => (string) ( $assoc_args['skip-columns'] ?? '' ),
 				'dry_run'          => false,
 			),
 			null !== $tables

@@ -28,6 +28,8 @@ final class Config {
 			'case_insensitive' => false,
 			'regex'            => false,
 			'skip_guid'        => true,
+			'columns'          => array(),
+			'skip_columns'     => array(),
 			'dry_run'          => true,
 			'page_size'        => self::DEFAULT_PAGE_SIZE,
 		);
@@ -50,6 +52,23 @@ final class Config {
 			if ( array_key_exists( $field, $input ) ) {
 				$config[ $field ] = rest_sanitize_boolean( $input[ $field ] );
 			}
+		}
+		foreach ( array( 'columns', 'skip_columns' ) as $field ) {
+			$names = $input[ $field ] ?? array();
+			$names = is_string( $names ) ? explode( ',', $names ) : (array) $names;
+			$list  = array();
+			foreach ( $names as $name ) {
+				$name = trim( (string) $name );
+				if ( '' === $name ) {
+					continue;
+				}
+				if ( ! preg_match( '/^[A-Za-z0-9_$]{1,64}$/', $name ) ) {
+					/* translators: %s: the text entered as a column name. */
+					return new WP_Error( 'swapline_bad_column', sprintf( __( '"%s" is not a column name.', 'swapline' ), $name ) );
+				}
+				$list[] = $name;
+			}
+			$config[ $field ] = array_values( array_unique( $list ) );
 		}
 		if ( isset( $input['page_size'] ) ) {
 			$config['page_size'] = min( self::MAX_PAGE_SIZE, max( self::MIN_PAGE_SIZE, absint( $input['page_size'] ) ) );
