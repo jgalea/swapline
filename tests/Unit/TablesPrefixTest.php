@@ -61,4 +61,14 @@ final class TablesPrefixTest extends DbTestCase {
 		$this->assertSame( Statement::REJECT, $other->type );
 		$this->assertSame( Statement::CREATE, $without->type );
 	}
+
+	public function test_validating_names_costs_one_table_status_query(): void {
+		$this->db->log = array();
+
+		Tables::validate( array( 'wp_posts', 'wp_postmeta' ) );
+
+		$status = array_filter( $this->db->log, fn( $q ) => str_starts_with( $q, 'SHOW TABLE STATUS' ) );
+		$this->assertCount( 1, $status );
+		$this->assertSame( array(), array_filter( $this->db->log, fn( $q ) => str_starts_with( $q, 'SHOW TABLES' ) && ! str_contains( $q, 'LIKE' ) ) );
+	}
 }

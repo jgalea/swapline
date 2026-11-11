@@ -16,22 +16,11 @@ final class Tables {
 	public static function all(): array {
 		global $wpdb;
 
-		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-			$wpdb->prepare( 'SHOW TABLE STATUS LIKE %s', $wpdb->esc_like( $wpdb->base_prefix ) . '%' ),
-			ARRAY_A
-		);
+		$core   = self::core_names();
+		$tables = array();
+		$global = is_multisite() ? array_values( $wpdb->tables( 'global', true ) ) : array();
 
-		$excluded = (array) apply_filters( 'swapline_excluded_tables', array( History::table() ) );
-		$foreign  = self::foreign_in( array_column( (array) $rows, 'Name' ) );
-		$core     = self::core_names();
-		$tables   = array();
-		$global   = is_multisite() ? array_values( $wpdb->tables( 'global', true ) ) : array();
-
-		foreach ( (array) $rows as $row ) {
-			$name = (string) $row['Name'];
-			if ( empty( $row['Engine'] ) || in_array( $name, $excluded, true ) || self::is_scratch( $name ) || self::has_prefix( $name, $foreign ) ) {
-				continue;
-			}
+		foreach ( self::listed() as $name => $row ) {
 			$tables[ $name ] = array(
 				'name' => $name,
 				'rows' => (int) $row['Rows'],
@@ -46,21 +35,46 @@ final class Tables {
 	}
 
 	/**
+	 * One query for the tables with this site's prefix, without views, scratch tables, the plugin's
+	 * own tables and other installs' tables.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	private static function listed(): array {
+		global $wpdb;
+
+		$rows = (array) $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare( 'SHOW TABLE STATUS LIKE %s', $wpdb->esc_like( $wpdb->base_prefix ) . '%' ),
+			ARRAY_A
+		);
+
+		$excluded = (array) apply_filters( 'swapline_excluded_tables', array( History::table() ) );
+		$foreign  = self::foreign_in( array_column( $rows, 'Name' ) );
+		$listed   = array();
+
+		foreach ( $rows as $row ) {
+			$name = (string) $row['Name'];
+			if ( empty( $row['Engine'] ) || in_array( $name, $excluded, true ) || self::is_scratch( $name ) || self::has_prefix( $name, $foreign ) ) {
+				continue;
+			}
+			$listed[ $name ] = $row;
+		}
+		return $listed;
+	}
+
+	/**
 	 * Returns the requested names that exist, in the order given, or null if any are unknown.
 	 *
 	 * @param string[] $requested
 	 * @return string[]|null
 	 */
 	public static function validate( array $requested ): ?array {
-		global $wpdb;
-
-		$existing = array_flip( (array) $wpdb->get_col( 'SHOW TABLES' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		$allowed  = self::all();
-		$valid    = array();
+		$allowed = self::listed();
+		$valid   = array();
 
 		foreach ( $requested as $name ) {
 			$name = (string) $name;
-			if ( ! isset( $existing[ $name ], $allowed[ $name ] ) ) {
+			if ( ! isset( $allowed[ $name ] ) ) {
 				return null;
 			}
 			$valid[ $name ] = $name;

@@ -393,13 +393,20 @@
 			} )
 		);
 
-		$( '#swapline-table-filter' ).addEventListener( 'input', ( event ) => {
-			const term = event.target.value.trim().toLowerCase();
+		function filterRows() {
+			const term = $( '#swapline-table-filter' ).value.trim().toLowerCase();
+			const siteSelect = $( '#swapline-site-filter' );
+			const site = siteSelect ? siteSelect.value : '';
 			boxes().forEach( ( box ) => {
 				const row = box.closest( 'tr' );
-				row.hidden = !! term && ! row.dataset.name.toLowerCase().includes( term );
+				row.hidden = ( !! term && ! row.dataset.name.toLowerCase().includes( term ) ) || ( '' !== site && row.dataset.site !== site );
 			} );
-		} );
+		}
+
+		$( '#swapline-table-filter' ).addEventListener( 'input', filterRows );
+		if ( $( '#swapline-site-filter' ) ) {
+			$( '#swapline-site-filter' ).addEventListener( 'change', filterRows );
+		}
 
 		form.addEventListener( 'change', ( event ) => {
 			if ( event.target.name === 'tables[]' ) {

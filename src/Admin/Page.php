@@ -167,6 +167,15 @@ final class Page {
 							<button type="button" class="button" data-select="core"><?php esc_html_e( 'Core tables only', 'swapline' ); ?></button>
 							<button type="button" class="button" data-select="none"><?php esc_html_e( 'Clear', 'swapline' ); ?></button>
 							<label for="swapline-table-filter" class="screen-reader-text"><?php esc_html_e( 'Filter tables', 'swapline' ); ?></label>
+							<?php if ( $multisite && count( $sites ) > 2 ) : ?>
+								<label for="swapline-site-filter" class="screen-reader-text"><?php esc_html_e( 'Show tables of one site', 'swapline' ); ?></label>
+								<select id="swapline-site-filter">
+									<option value=""><?php esc_html_e( 'All sites', 'swapline' ); ?></option>
+									<?php foreach ( $sites as $site_id => $label ) : ?>
+										<option value="<?php echo esc_attr( (string) $site_id ); ?>"><?php echo esc_html( $label ); ?></option>
+									<?php endforeach; ?>
+								</select>
+							<?php endif; ?>
 							<input type="search" id="swapline-table-filter" placeholder="<?php esc_attr_e( 'Filter tables', 'swapline' ); ?>">
 							<span id="swapline-selected-count" class="description"></span>
 						</div>
@@ -185,7 +194,7 @@ final class Page {
 								</thead>
 								<tbody>
 									<?php foreach ( $tables as $table ) : ?>
-										<tr data-core="<?php echo $table['core'] ? '1' : '0'; ?>" data-name="<?php echo esc_attr( $table['name'] ); ?>">
+										<tr data-core="<?php echo $table['core'] ? '1' : '0'; ?>" data-site="<?php echo esc_attr( (string) $table['site'] ); ?>" data-name="<?php echo esc_attr( $table['name'] ); ?>">
 											<th scope="row" class="check-column">
 												<input type="checkbox" name="tables[]" value="<?php echo esc_attr( $table['name'] ); ?>" id="swapline-t-<?php echo esc_attr( md5( $table['name'] ) ); ?>">
 											</th>
