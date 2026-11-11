@@ -333,8 +333,8 @@ final class Page {
 							<?php echo esc_html( self::date( (int) $run['started'] ) ); ?>
 							<br><span class="description"><?php echo esc_html( trim( $run['user'] . ' · ' . $run['source'], ' ·' ) ); ?></span>
 						</td>
-						<td><code><?php echo esc_html( self::excerpt( (string) $run['config']['search'] ) ); ?></code></td>
-						<td>
+						<td data-label="<?php echo esc_attr__( 'Search', 'swapline' ); ?>"><code><?php echo esc_html( self::excerpt( (string) $run['config']['search'] ) ); ?></code></td>
+						<td data-label="<?php echo esc_attr__( 'Replace', 'swapline' ); ?>">
 							<code><?php echo esc_html( self::excerpt( (string) $run['config']['replace'] ) ); ?></code>
 							<?php if ( count( (array) ( $run['config']['pairs'] ?? array() ) ) > 1 ) : ?>
 								<br><span class="description">
@@ -350,7 +350,7 @@ final class Page {
 								</span>
 							<?php endif; ?>
 						</td>
-						<td>
+						<td data-label="<?php echo esc_attr__( 'Mode', 'swapline' ); ?>">
 							<?php echo esc_html( $run['config']['dry_run'] ? __( 'Dry run', 'swapline' ) : __( 'Live', 'swapline' ) ); ?>
 							<?php if ( 'cancelled' === $run['status'] ) : ?>
 								<br><span class="description"><?php esc_html_e( 'Cancelled', 'swapline' ); ?></span>
@@ -358,8 +358,8 @@ final class Page {
 								<br><span class="description"><?php esc_html_e( 'Unfinished', 'swapline' ); ?></span>
 							<?php endif; ?>
 						</td>
-						<td class="num"><?php echo esc_html( number_format_i18n( (int) $run['totals']['rows_matched'] ) ); ?></td>
-						<td class="num"><?php echo esc_html( number_format_i18n( (int) $run['totals']['cells_changed'] ) ); ?></td>
+						<td class="num" data-label="<?php echo esc_attr__( 'Rows', 'swapline' ); ?>"><?php echo esc_html( number_format_i18n( (int) $run['totals']['rows_matched'] ) ); ?></td>
+						<td class="num" data-label="<?php echo esc_attr__( 'Cells', 'swapline' ); ?>"><?php echo esc_html( number_format_i18n( (int) $run['totals']['cells_changed'] ) ); ?></td>
 						<td class="swapline-actions">
 							<button type="button" class="button" data-run="<?php echo esc_attr( $run['id'] ); ?>"><?php esc_html_e( 'View changes', 'swapline' ); ?></button>
 							<?php if ( empty( $run['config']['dry_run'] ) && 'running' !== $run['status'] && empty( $run['undone'] ) && empty( $run['truncated'] ) && (int) $run['totals']['cells_changed'] > 0 ) : ?>

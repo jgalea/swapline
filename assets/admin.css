@@ -243,9 +243,49 @@
 		margin: 12px 0;
 	}
 
+	.swapline .swapline-history thead {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+	}
+
+	.swapline .swapline-history tr,
+	.swapline .swapline-history td {
+		display: block;
+		width: auto;
+	}
+
+	.swapline .swapline-history tr {
+		padding: 8px 0;
+		border-block-end: 1px solid #c3c4c7;
+	}
+
+	.swapline .swapline-history td {
+		padding: 4px 12px;
+	}
+
+	.swapline .swapline-history td[data-label]::before {
+		content: attr(data-label) ": ";
+		font-weight: 600;
+	}
+
+	.swapline .swapline-history td.num {
+		text-align: start;
+	}
+
 	.swapline .swapline-history code {
-		white-space: nowrap;
-		word-break: normal;
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+
+	.swapline .swapline-history .swapline-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 4px;
+		white-space: normal;
 	}
 
 	.swapline .swapline-replace-fields,
