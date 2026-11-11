@@ -1,4 +1,5 @@
 <?php
+// phpcs:disable WordPress.WP.AlternativeFunctions, WordPress.PHP.NoSilencedErrors -- scratch files in a temp folder.
 
 namespace Swapline\Tests\Unit;
 

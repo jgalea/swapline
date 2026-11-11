@@ -56,7 +56,7 @@ final class Ajax {
 		}
 
 		if ( array() !== Plugin::protected_tables( $config['tables'] ) && ! current_user_can( Plugin::database_capability() ) ) {
-			wp_send_json_error( array( 'message' => __( 'Only an administrator can change the users tables.', 'swapline' ) ), 403 );
+			wp_send_json_error( array( 'message' => __( 'Only an administrator can run on the users, usermeta and options tables.', 'swapline' ) ), 403 );
 		}
 
 		$job = Runner::start( $config, 'admin' );
@@ -108,6 +108,13 @@ final class Ajax {
 		$run    = History::find( $run_id );
 		if ( null === $run ) {
 			wp_send_json_error( array( 'message' => __( 'That run is no longer in the history.', 'swapline' ) ), 404 );
+		}
+
+		if ( ! current_user_can( Plugin::database_capability() ) ) {
+			$changed = array_keys( array_filter( $run['tables'], static fn( array $counts ): bool => $counts['cells_changed'] > 0 ) );
+			if ( array() !== Plugin::protected_tables( $changed ) ) {
+				wp_send_json_error( array( 'message' => __( 'Only an administrator can view changes to the users, usermeta and options tables.', 'swapline' ) ), 403 );
+			}
 		}
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified in guard().

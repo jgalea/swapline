@@ -5,6 +5,7 @@ namespace Swapline\Tests\Unit;
 use Swapline\Admin\Ajax;
 use Swapline\Admin\BackupAjax;
 use Swapline\Plugin;
+use Swapline\Run\History;
 use Swapline\Tests\Support\DbTestCase;
 use Swapline_Test_Json_Exit;
 
@@ -82,6 +83,47 @@ final class CapabilityTest extends DbTestCase {
 		$this->assertArrayNotHasKey( 'swapline_job', $GLOBALS['swapline_test']['options'] );
 	}
 
+	/**
+	 * @return array<string, array{0: string}>
+	 */
+	public function protected_run_tables(): array {
+		return array(
+			'users'    => array( 'wp_users' ),
+			'usermeta' => array( 'wp_usermeta' ),
+			'options'  => array( 'wp_options' ),
+		);
+	}
+
+	/**
+	 * @dataProvider protected_run_tables
+	 */
+	public function test_a_delegated_role_cannot_dry_run_or_rewrite_the_roles_option( string $table ): void {
+		foreach ( array( true, false ) as $dry_run ) {
+			$_POST['config'] = (string) wp_json_encode(
+				array(
+					'search'  => 'a:1:{s:13:"administrator"',
+					'replace' => 'x',
+					'tables'  => array( $table ),
+					'dry_run' => $dry_run,
+				)
+			);
+
+			$this->assertSame( 403, $this->refused( array( Ajax::class, 'handle_start' ) )->status );
+		}
+	}
+
+	public function test_a_delegated_role_cannot_read_changes_to_protected_tables(): void {
+		History::add(
+			array(
+				'id'     => 'run-1',
+				'tables' => array( 'wp_options' => array( 'cells_changed' => 1 ) ),
+			)
+		);
+		$_POST['run'] = 'run-1';
+
+		$this->assertSame( 403, $this->refused( array( Ajax::class, 'handle_changes' ) )->status );
+	}
+
 	public function test_a_delegated_role_can_still_run_on_other_tables(): void {
 		$_POST['config'] = (string) wp_json_encode(
 			array(
@@ -110,7 +152,9 @@ final class CapabilityTest extends DbTestCase {
 	}
 
 	public function test_protected_tables_are_the_accounts_tables(): void {
-		$this->assertSame( array( 'wp_users', 'wp_usermeta' ), Plugin::protected_tables( array( 'wp_posts', 'wp_users', 'wp_options', 'wp_usermeta' ) ) );
-		$this->assertSame( array(), Plugin::protected_tables( array( 'wp_posts', 'wp_options' ) ) );
+		$this->assertSame( array( 'wp_users', 'wp_options', 'wp_usermeta' ), Plugin::protected_tables( array( 'wp_posts', 'wp_users', 'wp_options', 'wp_usermeta' ) ) );
+		$this->assertSame( array(), Plugin::protected_tables( array( 'wp_posts', 'wp_postmeta' ) ) );
+		$GLOBALS['swapline_test']['multi'] = true;
+		$this->assertSame( array( 'wp_3_options', 'wp_sitemeta' ), Plugin::protected_tables( array( 'wp_3_options', 'wp_3_posts', 'wp_sitemeta' ) ) );
 	}
 }

@@ -45,17 +45,29 @@ final class Plugin {
 	}
 
 	/**
+	 * Tables that hold accounts, roles and site settings. Rewriting them is enough to become an
+	 * administrator (usermeta capabilities, the user_roles option, default_role, active_plugins).
+	 *
 	 * @param string[] $tables
-	 * @return string[] The tables that hold accounts and roles.
+	 * @return string[]
 	 */
 	public static function protected_tables( array $tables ): array {
 		global $wpdb;
 
-		$protected = array( $wpdb->base_prefix . 'users', $wpdb->base_prefix . 'usermeta' );
+		$exact   = array( $wpdb->base_prefix . 'users', $wpdb->base_prefix . 'usermeta' );
+		$options = '/^' . preg_quote( $wpdb->base_prefix, '/' ) . '(?:[0-9]+_)?options$/';
 		if ( is_multisite() ) {
-			$protected[] = $wpdb->base_prefix . 'sitemeta';
+			$exact[] = $wpdb->base_prefix . 'sitemeta';
 		}
-		return array_values( array_intersect( $tables, $protected ) );
+
+		return array_values(
+			array_filter(
+				$tables,
+				static function ( string $table ) use ( $exact, $options ): bool {
+					return in_array( $table, $exact, true ) || 1 === preg_match( $options, $table );
+				}
+			)
+		);
 	}
 
 	/**
