@@ -25,7 +25,7 @@ Swapline finds and replaces text in your database tables. It's built for moving 
 * Large tables are processed in batches with a progress bar. Tables without a primary key work too.
 * On multisite, the tool lives in the network admin and super admins can pick tables from any site.
 * Back up the whole database or selected tables to a gzipped SQL file. Optionally apply a search and replace to the backup only, to move the site to a new domain without touching the live site.
-* Backups are stored in a private folder that can't be opened from the web, and downloaded from the admin. Keep as many as you like.
+* Backups are stored in a folder with a random name in your uploads directory, with random file names and .htaccess and web.config rules that deny web access. Download them from the admin. Keep as many as you like.
 * A live search and replace can back up the selected tables first.
 * Import a .sql or .sql.gz file, or one of your backups, with an optional search and replace. Every statement is checked first, the data loads into temporary tables, and the live tables are swapped only when everything has loaded. If anything fails, the live database is untouched.
 * Importing can keep you logged in and keep the site's address.

@@ -119,7 +119,7 @@ final class BackupScreen {
 		<?php if ( is_wp_error( $dir ) ) : ?>
 			<div class="notice notice-error inline"><p><?php echo esc_html( $dir->get_error_message() ); ?></p></div>
 		<?php endif; ?>
-		<p class="description"><?php esc_html_e( 'Backups are stored in a private folder in your uploads directory that cannot be opened from the web. Download them from here.', 'swapline' ); ?></p>
+		<p class="description"><?php esc_html_e( 'Backups are stored in a folder with a random name in your uploads directory, with random file names and rules that deny web access. Download them from here.', 'swapline' ); ?></p>
 		<div class="swapline-scroll">
 			<table class="widefat striped swapline-backups">
 				<thead>
