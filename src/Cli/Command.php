@@ -56,6 +56,9 @@ final class Command {
 	 * [--backup]
 	 * : Back up the tables first. Ignored on a dry run.
 	 *
+	 * [--yes]
+	 * : Don't ask for confirmation before writing.
+	 *
 	 * [--format=<format>]
 	 * : Output format for the per-table report.
 	 * ---
@@ -69,6 +72,7 @@ final class Command {
 	 * ## EXAMPLES
 	 *
 	 *     wp swapline run https://old.example.com https://new.example.com --dry-run
+	 *     wp swapline run https://old.example.com https://new.example.com --yes
 	 *     wp swapline run 'https?://old\.example\.com/(\d+)' 'https://new.example.com/$1' wp_posts --regex
 	 *     wp swapline run --profile="Staging to live"
 	 *
@@ -122,6 +126,10 @@ final class Command {
 		$config = Config::from_input( $input );
 		if ( is_wp_error( $config ) ) {
 			WP_CLI::error( $config->get_error_message() );
+		}
+
+		if ( ! $config['dry_run'] ) {
+			WP_CLI::confirm( sprintf( 'Replace in %d tables? This writes to the database.', count( $config['tables'] ) ), $assoc_args );
 		}
 
 		if ( ! $config['dry_run'] && WP_CLI\Utils\get_flag_value( $assoc_args, 'backup', false ) ) {
