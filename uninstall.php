@@ -14,6 +14,8 @@ foreach ( array( 'swapline_runs', 'swapline_profiles', 'swapline_job', 'swapline
 	}
 }
 
+delete_transient( 'swapline_folder_exposed' );
+
 $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->base_prefix}swapline_changes" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
 foreach ( array( 'tmp', 'old' ) as $swapline_kind ) {

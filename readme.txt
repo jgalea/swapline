@@ -73,6 +73,17 @@ It uses the same engine as the admin screen, so it also replaces JSON-escaped va
 
 == Changelog ==
 
+= Unreleased =
+* Undo a run from History: cells the run changed go back to their earlier value, and cells edited since are left alone.
+* Restore the backup taken before a run from History or the Backup list in one click.
+* Run several search and replace pairs in one pass, applied in order.
+* Limit a run, backup or import to chosen columns, or skip some.
+* Interrupted runs can be resumed, and the diff of a run stays available.
+* Admin, API and CLI runs no longer interfere with each other.
+* Table names match exactly, so a prefix such as wp_ no longer picks up wp_2_ tables.
+* SQLite sites get a clear message on the Import tab.
+* The users, usermeta and options tables stay limited to administrators even when the capability filter delegates Swapline.
+* The mobile layout works at phone widths.
 = 0.3.0 =
 * Other plugins can run previews, replacements and backups through Swapline's API.
 * The `swapline_capability` filter sets which capability can use Swapline.

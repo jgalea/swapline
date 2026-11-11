@@ -194,7 +194,76 @@
 		max-height: 300px;
 	}
 
-	.swapline .swapline-diff table.diff {
-		min-width: 560px;
+	.swapline .swapline-tables table,
+	.swapline .swapline-report {
+		display: table;
+		width: 100%;
 	}
+
+	.swapline .swapline-tables thead {
+		display: table-header-group;
+	}
+
+	.swapline .swapline-tables tbody {
+		display: table-row-group;
+	}
+
+	.swapline .swapline-tables tr {
+		display: table-row;
+	}
+
+	.swapline .swapline-tables td,
+	.swapline .swapline-tables th,
+	.swapline .swapline-report td,
+	.swapline .swapline-report th {
+		display: table-cell;
+		width: auto;
+		padding: 8px 6px;
+	}
+
+	.swapline .swapline-tables tbody .check-column {
+		width: 2.2em;
+		padding: 8px 0 8px 8px;
+	}
+
+	.swapline #swapline-results .swapline-report code {
+		white-space: nowrap;
+		word-break: normal;
+	}
+
+	.swapline .swapline-diff table.diff td {
+		padding: 4px;
+	}
+
+	.swapline .swapline-diff table.diff td:nth-child(odd) {
+		width: 1.4em;
+	}
+
+	.swapline .swapline-pair {
+		margin: 12px 0;
+	}
+
+	.swapline .swapline-history code {
+		white-space: nowrap;
+		word-break: normal;
+	}
+
+	.swapline .swapline-replace-fields,
+	.swapline .swapline-backup-tables,
+	.swapline .swapline-source,
+	.swapline .swapline-regex-help {
+		margin-left: 0;
+	}
+}
+
+.swapline .swapline-pair {
+	border: 1px solid #c3c4c7;
+	padding: 0 12px 8px;
+	margin: 12px 0;
+	max-width: 600px;
+}
+
+.swapline .swapline-pair legend {
+	font-weight: 600;
+	padding: 0 4px;
 }
