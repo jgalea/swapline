@@ -731,11 +731,10 @@ final class Importer {
 
 	private static function db_error( string $fallback ): string {
 		global $wpdb;
-		if ( '' === (string) $wpdb->last_error ) {
-			return $fallback;
+		if ( '' !== (string) $wpdb->last_error ) {
+			error_log( 'Swapline import: ' . $wpdb->last_error ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- the detail stays in the server log, not the browser.
 		}
-		/* translators: %s: the database error. */
-		return sprintf( __( 'The database reported an error: %s', 'swapline' ), $wpdb->last_error );
+		return $fallback;
 	}
 
 	/**
