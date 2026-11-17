@@ -10,3 +10,4 @@
 /.distignore
 /.phpunit.result.cache
 /README.md
+/.wordpress-org
