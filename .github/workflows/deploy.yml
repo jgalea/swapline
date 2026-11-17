@@ -1,0 +1,28 @@
+name: Deploy to WordPress.org
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Check the tag matches the plugin version
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          header=$(grep -m1 -E '^[[:space:]]*\*[[:space:]]*Version:' swapline.php | awk '{print $NF}')
+          stable=$(grep -m1 -E '^Stable tag:' readme.txt | awk '{print $NF}')
+          if [ "$tag" != "$header" ] || [ "$tag" != "$stable" ]; then
+            echo "Tag $tag, Version header $header and Stable tag $stable must all match."
+            exit 1
+          fi
+
+      - uses: 10up/action-wordpress-plugin-deploy@2.3.0
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: swapline
