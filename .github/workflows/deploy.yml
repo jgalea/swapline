@@ -4,20 +4,36 @@ on:
   push:
     tags:
       - "*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to deploy, e.g. 0.3.0"
+        required: true
+
+env:
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Check the tag format
+        run: |
+          if ! [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Tag $TAG is not a version number."
+            exit 1
+          fi
+
       - uses: actions/checkout@v7.0.1
+        with:
+          ref: refs/tags/${{ env.TAG }}
 
       - name: Check the tag matches the plugin version
         run: |
-          tag="${GITHUB_REF_NAME}"
           header=$(grep -m1 -E '^[[:space:]]*\*[[:space:]]*Version:' swapline.php | awk '{print $NF}')
           stable=$(grep -m1 -E '^Stable tag:' readme.txt | awk '{print $NF}')
-          if [ "$tag" != "$header" ] || [ "$tag" != "$stable" ]; then
-            echo "Tag $tag, Version header $header and Stable tag $stable must all match."
+          if [ "$TAG" != "$header" ] || [ "$TAG" != "$stable" ]; then
+            echo "Tag $TAG, Version header $header and Stable tag $stable must all match."
             exit 1
           fi
 
@@ -26,3 +42,4 @@ jobs:
           SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
           SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
           SLUG: swapline
+          VERSION: ${{ env.TAG }}
