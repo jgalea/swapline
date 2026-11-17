@@ -147,12 +147,9 @@
 	word-break: break-all;
 }
 
-.swapline .swapline-actions {
-	white-space: nowrap;
-}
-
 .swapline .swapline-actions .button {
 	margin: 2px 4px 2px 0;
+	white-space: normal;
 }
 
 .swapline .swapline-inline-form {
