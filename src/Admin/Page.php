@@ -279,7 +279,7 @@ final class Page {
 		<dialog id="swapline-confirm" aria-labelledby="swapline-confirm-title">
 			<form method="dialog">
 				<h2 id="swapline-confirm-title"><?php esc_html_e( 'Run the search and replace?', 'swapline' ); ?></h2>
-				<p><?php esc_html_e( 'This writes to the database and cannot be undone.', 'swapline' ); ?></p>
+				<p><?php esc_html_e( 'This writes to the database. Most runs can be undone from History, and the backup covers the rest.', 'swapline' ); ?></p>
 				<p><label><input type="checkbox" id="swapline-confirm-backup" checked> <?php esc_html_e( 'Back up the selected tables first', 'swapline' ); ?></label></p>
 				<p class="swapline-dialog-actions">
 					<button type="submit" class="button" value="cancel"><?php esc_html_e( 'Cancel', 'swapline' ); ?></button>

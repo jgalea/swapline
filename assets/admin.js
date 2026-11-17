@@ -272,7 +272,7 @@
 			const backup = $( '#swapline-confirm-backup' );
 			if ( ! dialog || ! dialog.showModal || ! window.swaplineRunBackup ) {
 				return Promise.resolve(
-					window.confirm( __( 'This writes to the database and cannot be undone. Make sure you have a backup. Continue?', 'swapline' ) ) ? { backup: false } : null
+					window.confirm( __( 'This writes to the database. Most runs can be undone from History, but make sure you have a backup. Continue?', 'swapline' ) ) ? { backup: false } : null
 				);
 			}
 			return new Promise( ( resolve ) => {
