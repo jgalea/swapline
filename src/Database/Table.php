@@ -136,8 +136,9 @@ final class Table {
 		$table = Tables::quote( $this->name );
 
 		if ( self::KEY_NONE === $this->key_type ) {
-			$order = $stable ? ' ORDER BY ' . implode( ', ', array_map( array( self::class, 'ident' ), array_keys( $this->columns ) ) ) : '';
-			return (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM %i' . $order . ' LIMIT %d, %d', $this->name, (int) $cursor, $limit ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared -- batched read of live rows; identifiers are quoted.
+			$order_by = $stable ? array_keys( $this->columns ) : array();
+			$order    = array() === $order_by ? '' : ' ORDER BY ' . implode( ', ', array_fill( 0, count( $order_by ), '%i' ) );
+			return (array) $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM %i' . $order . ' LIMIT %d, %d', array_merge( array( $this->name ), $order_by, array( (int) $cursor, $limit ) ) ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- batched read of live rows; placeholders built from the column list.
 		}
 
 		$select = implode( ', ', array_map( array( Tables::class, 'quote' ), array_unique( array_merge( $this->key, $columns ) ) ) );
