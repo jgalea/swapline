@@ -6,6 +6,7 @@ namespace {
 		class WP_CLI {
 			/** @var string[] */
 			public static array $calls = array();
+			public static string $last_success = '';
 			public static bool $answer = true;
 
 			public static function confirm( $question, $assoc_args = array() ) {
@@ -18,7 +19,8 @@ namespace {
 				throw new \RuntimeException( (string) $message );
 			}
 			public static function success( $message ) {
-				self::$calls[] = 'success';
+				self::$calls[]      = 'success';
+				self::$last_success = (string) $message;
 			}
 			public static function warning( $message ) {}
 			public static function log( $message ) {}

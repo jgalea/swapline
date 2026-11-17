@@ -183,7 +183,13 @@ final class Command {
 
 		$totals = $run['totals'];
 		$verb   = $config['dry_run'] ? 'would change' : 'changed';
-		WP_CLI::success( sprintf( '%d cells in %d rows %s (%d replacements). Run %s is in the admin history.', $totals['cells_changed'], $totals['rows_matched'], $verb, $totals['replacements'], $run['id'] ) );
+		/* translators: %d: number of cells */
+		$cells = sprintf( _n( '%d cell', '%d cells', $totals['cells_changed'], 'swapline' ), $totals['cells_changed'] );
+		/* translators: %d: number of rows */
+		$rows_matched = sprintf( _n( '%d row', '%d rows', $totals['rows_matched'], 'swapline' ), $totals['rows_matched'] );
+		/* translators: %d: number of replacements */
+		$replaced = sprintf( _n( '%d replacement', '%d replacements', $totals['replacements'], 'swapline' ), $totals['replacements'] );
+		WP_CLI::success( sprintf( '%1$s in %2$s %3$s (%4$s). Run %5$s is in the admin history.', $cells, $rows_matched, $verb, $replaced, $run['id'] ) );
 
 		if ( $totals['failures'] > 0 ) {
 			WP_CLI::warning( sprintf( '%d values contained the search but could not be parsed as serialized data or JSON, and were left unchanged.', $totals['failures'] ) );

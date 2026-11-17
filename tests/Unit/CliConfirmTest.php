@@ -59,4 +59,16 @@ final class CliConfirmTest extends DbTestCase {
 		$this->assertNotContains( 'confirm', WP_CLI::$calls );
 		$this->assertSame( 'http://old.test', $this->rows( 'wp_posts' )[0]['post_content'] );
 	}
+
+	public function test_the_summary_uses_singular_forms_for_one(): void {
+		( new Command() )->run(
+			array( 'old.test', 'new.test', 'wp_posts' ),
+			array(
+				'format' => 'table',
+				'yes'    => true,
+			)
+		);
+
+		$this->assertStringStartsWith( '1 cell in 1 row changed (1 replacement).', WP_CLI::$last_success );
+	}
 }
