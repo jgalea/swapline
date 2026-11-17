@@ -4,7 +4,7 @@ Tags: search replace, database, migration, serialized, multisite
 Requires at least: 6.2
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 0.4.0
+Stable tag: 0.4.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -86,6 +86,10 @@ It uses the same engine as the admin screen, so it also replaces JSON-escaped va
 6. Import a backup or SQL file, with an optional search and replace and your login kept.
 
 == Changelog ==
+
+= 0.4.1 =
+* The History tab's action buttons wrap onto extra lines instead of running past the edge of the table.
+* The WP-CLI run summary now reads "1 cell in 1 row changed (1 replacement)" for single counts.
 
 = 0.4.0 =
 * Undo a live run from History. Cells the run changed go back to their earlier value, and cells edited since keep their newer value.
