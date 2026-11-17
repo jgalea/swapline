@@ -65,24 +65,15 @@
 
 		const totals = run.totals;
 		const dry = run.config.dry_run;
-		let summary;
-		if ( dry ) {
-			summary = sprintf(
-				/* translators: 1: cells, 2: rows, 3: replacements. */
-				__( 'Dry run: %1$s cells in %2$s rows would change (%3$s replacements). Nothing was written.', 'swapline' ),
-				number( totals.cells_changed ),
-				number( totals.rows_matched ),
-				number( totals.replacements )
-			);
-		} else {
-			summary = sprintf(
-				/* translators: 1: cells, 2: rows, 3: replacements. */
-				__( '%1$s cells in %2$s rows were changed (%3$s replacements).', 'swapline' ),
-				number( totals.cells_changed ),
-				number( totals.rows_matched ),
-				number( totals.replacements )
-			);
-		}
+		/* translators: %s: number of cells. */
+		const cells = sprintf( _n( '%s cell', '%s cells', totals.cells_changed, 'swapline' ), number( totals.cells_changed ) );
+		/* translators: %s: number of rows. */
+		const rows = sprintf( _n( '%s row', '%s rows', totals.rows_matched, 'swapline' ), number( totals.rows_matched ) );
+		/* translators: %s: number of replacements. */
+		const replacements = sprintf( _n( '%s replacement', '%s replacements', totals.replacements, 'swapline' ), number( totals.replacements ) );
+		let summary = dry
+			? /* translators: 1: cells, 2: rows, 3: replacements, such as "3 cells". */ sprintf( __( 'Dry run: %1$s in %2$s would change (%3$s). Nothing was written.', 'swapline' ), cells, rows, replacements )
+			: /* translators: 1: cells, 2: rows, 3: replacements, such as "3 cells". */ sprintf( __( '%1$s in %2$s changed (%3$s).', 'swapline' ), cells, rows, replacements );
 		if ( 'cancelled' === run.status ) {
 			summary += ' ' + __( 'The run was cancelled before it finished.', 'swapline' );
 		}
@@ -306,16 +297,58 @@
 			$( '.swapline-regex-help', form ).classList.toggle( 'hidden', ! form.elements.regex.checked );
 		}
 
+		const extraPairs = $( '#swapline-extra-pairs' );
+
+		function addPair( search = '', replace = '' ) {
+			const n = extraPairs.children.length + 2;
+			const box = el( 'fieldset', { className: 'swapline-pair' }, [
+				el( 'legend', {
+					/* translators: %s: pair number. */
+					text: sprintf( __( 'Pair %s', 'swapline' ), number( n ) ),
+				} ),
+			] );
+			const fields = [ [ __( 'Search for', 'swapline' ), search, 'search' ], [ __( 'Replace with', 'swapline' ), replace, 'replace' ] ].map( ( [ label, value, name ], i ) => {
+				const id = 'swapline-pair-' + n + '-' + name;
+				const textarea = el( 'textarea', { id, className: 'large-text code', rows: '2', spellcheck: 'false', 'data-pair': name } );
+				textarea.value = value;
+				return el( 'p', {}, [ el( 'label', { for: id, text: label } ), el( 'br' ), textarea ] );
+			} );
+			const remove = el( 'button', { type: 'button', className: 'button button-link-delete', text: __( 'Remove this pair', 'swapline' ) } );
+			remove.addEventListener( 'click', () => {
+				box.remove();
+				$$( '.swapline-pair legend', extraPairs ).forEach( ( legend, i ) => ( legend.textContent = sprintf( __( 'Pair %s', 'swapline' ), number( i + 2 ) ) ) );
+			} );
+			fields.forEach( ( field ) => box.append( field ) );
+			box.append( remove );
+			extraPairs.append( box );
+		}
+
+		$( '#swapline-add-pair' ).addEventListener( 'click', () => {
+			addPair();
+			$( '.swapline-pair:last-child textarea', extraPairs ).focus();
+		} );
+
+		function readPairs() {
+			const pairs = [ { search: form.elements.search.value, replace: form.elements.replace.value } ];
+			$$( '.swapline-pair', extraPairs ).forEach( ( box ) => {
+				pairs.push( { search: $( '[data-pair="search"]', box ).value, replace: $( '[data-pair="replace"]', box ).value } );
+			} );
+			return pairs.filter( ( pair ) => '' !== pair.search );
+		}
+
 		function readConfig() {
 			return {
 				search: form.elements.search.value,
 				replace: form.elements.replace.value,
+				pairs: readPairs(),
 				tables: boxes()
 					.filter( ( box ) => box.checked )
 					.map( ( box ) => box.value ),
 				case_insensitive: form.elements.case_insensitive.checked,
 				regex: form.elements.regex.checked,
 				skip_guid: form.elements.skip_guid.checked,
+				columns: form.elements.columns.value,
+				skip_columns: form.elements.skip_columns.value,
 				dry_run: form.elements.dry_run.checked,
 				page_size: parseInt( form.elements.page_size.value, 10 ) || data.defaults.page_size,
 			};
@@ -323,9 +356,14 @@
 
 		function applyConfig( config ) {
 			const merged = Object.assign( {}, data.defaults, config );
-			form.elements.search.value = merged.search;
-			form.elements.replace.value = merged.replace;
+			const pairs = merged.pairs && merged.pairs.length ? merged.pairs : [ { search: merged.search, replace: merged.replace } ];
+			form.elements.search.value = pairs[ 0 ].search;
+			form.elements.replace.value = pairs[ 0 ].replace;
+			extraPairs.replaceChildren();
+			pairs.slice( 1 ).forEach( ( pair ) => addPair( pair.search, pair.replace ) );
 			[ 'case_insensitive', 'regex', 'skip_guid', 'dry_run' ].forEach( ( key ) => ( form.elements[ key ].checked = !! merged[ key ] ) );
+			form.elements.columns.value = [].concat( merged.columns || [] ).join( ', ' );
+			form.elements.skip_columns.value = [].concat( merged.skip_columns || [] ).join( ', ' );
 			form.elements.page_size.value = merged.page_size;
 			const wanted = new Set( merged.tables || [] );
 			boxes().forEach( ( box ) => ( box.checked = wanted.has( box.value ) ) );
@@ -393,13 +431,20 @@
 			} )
 		);
 
-		$( '#swapline-table-filter' ).addEventListener( 'input', ( event ) => {
-			const term = event.target.value.trim().toLowerCase();
+		function filterRows() {
+			const term = $( '#swapline-table-filter' ).value.trim().toLowerCase();
+			const siteSelect = $( '#swapline-site-filter' );
+			const site = siteSelect ? siteSelect.value : '';
 			boxes().forEach( ( box ) => {
 				const row = box.closest( 'tr' );
-				row.hidden = !! term && ! row.dataset.name.toLowerCase().includes( term );
+				row.hidden = ( !! term && ! row.dataset.name.toLowerCase().includes( term ) ) || ( '' !== site && row.dataset.site !== site );
 			} );
-		} );
+		}
+
+		$( '#swapline-table-filter' ).addEventListener( 'input', filterRows );
+		if ( $( '#swapline-site-filter' ) ) {
+			$( '#swapline-site-filter' ).addEventListener( 'change', filterRows );
+		}
 
 		form.addEventListener( 'change', ( event ) => {
 			if ( event.target.name === 'tables[]' ) {
@@ -488,6 +533,7 @@
 				return;
 			}
 			let backupFirst = false;
+			let backupName = '';
 			if ( ! config.dry_run ) {
 				const choice = await confirmLiveRun();
 				if ( ! choice ) {
@@ -521,30 +567,102 @@
 						setRunning( false );
 						return;
 					}
+					backupName = backup.backup.name;
 					notice( 'info', __( 'The selected tables were backed up first. The backup is listed on the Backup tab.', 'swapline' ) );
 				}
-				let progress = await post( 'start', { config: JSON.stringify( config ) } );
-				const jobId = progress.id;
-				showProgress( progress );
-				let run = null;
-				while ( ! run ) {
-					if ( cancelRequested ) {
-						run = ( await post( 'cancel', { job: jobId } ) ).run;
-						break;
-					}
-					const result = await post( 'step', { job: jobId } );
-					progress = result.progress;
-					showProgress( progress );
-					run = result.run || null;
+				const progress = await post( 'start', { config: JSON.stringify( config ), backup: backupName } );
+				await drive( progress );
+			} catch ( e ) {
+				notice( 'error', e.message );
+				await offerResume();
+			}
+			setRunning( false );
+		} );
+
+		const resumeBox = $( '#swapline-resume' );
+
+		function showUnfinished( job ) {
+			if ( ! job ) {
+				resumeBox.classList.add( 'hidden' );
+				return;
+			}
+			$( 'p', resumeBox ).textContent = job.dry_run
+				? sprintf(
+						/* translators: 1: table number, 2: table count. */
+						__( 'A dry run stopped at table %1$s of %2$s. Nothing was written. Resume it, or stop and keep what it found.', 'swapline' ),
+						number( job.table_index + 1 ),
+						number( job.table_count )
+				  )
+				: sprintf(
+						/* translators: 1: table number, 2: table count. */
+						__( 'A run stopped at table %1$s of %2$s. The tables before it are already changed. Resume it to finish, or stop and keep the record of what changed.', 'swapline' ),
+						number( job.table_index + 1 ),
+						number( job.table_count )
+				  );
+			resumeBox.dataset.job = job.id;
+			resumeBox.classList.remove( 'hidden' );
+		}
+
+		async function offerResume() {
+			try {
+				showUnfinished( ( await post( 'status' ) ).job );
+			} catch ( e ) {
+				// The server can't be reached; reloading the page offers the resume again.
+			}
+		}
+
+		async function drive( start ) {
+			const jobId = start.id;
+			let progress = start;
+			let run = null;
+			showProgress( progress );
+			while ( ! run ) {
+				if ( cancelRequested ) {
+					run = ( await post( 'cancel', { job: jobId } ) ).run;
+					break;
 				}
+				const result = await post( 'step', { job: jobId } );
+				progress = result.progress;
+				showProgress( progress );
+				run = result.run || null;
+			}
+			if ( run ) {
+				renderResults( run );
+			}
+		}
+
+		$( '[data-action="resume"]', resumeBox ).addEventListener( 'click', async () => {
+			const id = resumeBox.dataset.job;
+			resumeBox.classList.add( 'hidden' );
+			cancelRequested = false;
+			setRunning( true );
+			notice( '', '' );
+			try {
+				const status = ( await post( 'status' ) ).job;
+				if ( ! status || status.id !== id ) {
+					throw new Error( __( 'That run is no longer active.', 'swapline' ) );
+				}
+				await drive( status );
+			} catch ( e ) {
+				notice( 'error', e.message );
+				await offerResume();
+			}
+			setRunning( false );
+		} );
+
+		$( '[data-action="stop"]', resumeBox ).addEventListener( 'click', async () => {
+			try {
+				const run = ( await post( 'cancel', { job: resumeBox.dataset.job } ) ).run;
+				resumeBox.classList.add( 'hidden' );
 				if ( run ) {
 					renderResults( run );
 				}
 			} catch ( e ) {
 				notice( 'error', e.message );
 			}
-			setRunning( false );
 		} );
+
+		showUnfinished( data.unfinished );
 
 		window.addEventListener( 'beforeunload', ( event ) => {
 			if ( running ) {
@@ -579,6 +697,44 @@
 		);
 	}
 
+	function initUndo() {
+		$$( '[data-undo]' ).forEach( ( button ) =>
+			button.addEventListener( 'click', async () => {
+				if ( ! window.confirm( __( 'Put back the original value of every cell this run changed? Cells edited since are left as they are.', 'swapline' ) ) ) {
+					return;
+				}
+				button.disabled = true;
+				notice( '', '' );
+				try {
+					const result = await post( 'undo', { run: button.dataset.undo } );
+					const message = sprintf(
+						/* translators: %s: number of cells. */
+						_n( '%s cell was put back.', '%s cells were put back.', result.restored, 'swapline' ),
+						number( result.restored )
+					);
+					const skipped = result.changed_since + result.missing;
+					notice(
+						skipped ? 'warning' : 'success',
+						skipped
+							? message +
+									' ' +
+									sprintf(
+										/* translators: %s: number of cells. */
+										_n( '%s cell was left alone because it changed since or its row is gone.', '%s cells were left alone because they changed since or their rows are gone.', skipped, 'swapline' ),
+										number( skipped )
+									)
+							: message
+					);
+					button.replaceWith( el( 'span', { className: 'description', text: __( 'Undone', 'swapline' ) } ) );
+				} catch ( e ) {
+					button.disabled = false;
+					notice( 'error', e.message );
+				}
+			} )
+		);
+	}
+
 	initForm();
 	initHistory();
+	initUndo();
 } )();

@@ -3,6 +3,7 @@
 namespace Swapline\Run;
 
 use Swapline\Engine\Replacer;
+use Swapline\Engine\Sequence;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -13,7 +14,7 @@ final class Cells {
 	 * @param array<string, string|null> $row
 	 * @return array{changes: array<string, string>, replacements: int, failures: int}
 	 */
-	public static function replace( Replacer $engine, array $columns, array $row ): array {
+	public static function replace( Sequence $engine, array $columns, array $row ): array {
 		$out = array(
 			'changes'      => array(),
 			'replacements' => 0,
@@ -39,7 +40,19 @@ final class Cells {
 	/**
 	 * @param array<string, mixed> $config Validated Config.
 	 */
-	public static function engine( array $config ): Replacer {
-		return new Replacer( (string) $config['search'], (string) $config['replace'], (bool) $config['case_insensitive'], (bool) $config['regex'] );
+	public static function engine( array $config ): Sequence {
+		$pairs = ! empty( $config['pairs'] ) ? $config['pairs'] : array(
+			array(
+				'search'  => $config['search'],
+				'replace' => $config['replace'],
+			),
+		);
+
+		return new Sequence(
+			array_map(
+				static fn( array $pair ): Replacer => new Replacer( (string) $pair['search'], (string) $pair['replace'], (bool) $config['case_insensitive'], (bool) $config['regex'] ),
+				$pairs
+			)
+		);
 	}
 }

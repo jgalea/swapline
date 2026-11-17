@@ -4,6 +4,7 @@
 namespace Swapline\Import;
 
 use Swapline\Backup\Storage;
+use Swapline\Clock;
 use Swapline\Database\Table;
 use Swapline\Database\Tables;
 use Swapline\Run\Cells;
@@ -27,8 +28,6 @@ final class Importer {
 
 	public const JOB_OPTION = 'swapline_import_job';
 
-	private const TEMP   = 'swapline_tmp_';
-	private const OLD    = 'swapline_old_';
 	private const CHUNK  = 1048576;
 	private const LISTED = 20;
 
@@ -40,8 +39,15 @@ final class Importer {
 	 * @return array<string, mixed>|WP_Error
 	 */
 	public static function start( string $path, bool $owned, ?array $replace, bool $preserve, string $source ) {
+		if ( Tables::uses_sqlite() ) {
+			return new WP_Error( 'swapline_sqlite', __( 'Imports need a MySQL or MariaDB database. This site runs on SQLite.', 'swapline' ) );
+		}
+
 		$previous = self::current();
 		if ( null !== $previous ) {
+			if ( Clock::is_recent( $previous ) && ( 'admin' !== $source || get_current_user_id() !== (int) $previous['user_id'] ) ) {
+				return new WP_Error( 'swapline_busy', __( 'Another import is running. Wait for it to finish, or try again in a few minutes.', 'swapline' ) );
+			}
 			self::cleanup( $previous );
 			Store::delete( self::JOB_OPTION );
 		}
@@ -193,12 +199,15 @@ final class Importer {
 	 * @return array<string, mixed>
 	 */
 	public static function run( array $job, ?callable $tick = null ): array {
+		self::save( $job );
 		while ( ! $job['done'] ) {
 			$job = self::step( $job, microtime( true ) + 5 );
+			self::save( $job );
 			if ( null !== $tick ) {
 				$tick( $job );
 			}
 		}
+		self::clear();
 		return $job;
 	}
 
@@ -214,6 +223,7 @@ final class Importer {
 	 * @param array<string, mixed> $job
 	 */
 	public static function save( array $job ): void {
+		$job['touched'] = time();
 		Store::set( self::JOB_OPTION, $job );
 	}
 
@@ -227,10 +237,10 @@ final class Importer {
 	public static function drop_leftovers(): void {
 		global $wpdb;
 
-		foreach ( array( self::TEMP, self::OLD ) as $prefix ) {
-			$names = (array) $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $prefix ) . '%' ) );
+		foreach ( array( 'tmp', 'old' ) as $kind ) {
+			$names = (array) $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( Tables::scratch_prefix( $kind ) ) . '%' ) );
 			foreach ( $names as $name ) {
-				if ( preg_match( '/^' . $prefix . '[a-f0-9]{8}_\d+$/', $name ) ) {
+				if ( Tables::is_scratch( (string) $name ) ) {
 					$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- name matched against the plugin's own pattern.
 				}
 			}
@@ -256,6 +266,8 @@ final class Importer {
 			self::abort( __( 'The file could not be unpacked. Check the free disk space.', 'swapline' ) );
 		}
 
+		$limit = max( 0, (int) apply_filters( 'swapline_max_unpacked_size', 50 * (int) $job['size'] ) );
+
 		$finished = false;
 		do {
 			$data = gzread( $in, self::CHUNK );
@@ -274,6 +286,11 @@ final class Importer {
 				self::abort( __( 'The file could not be unpacked. Check the free disk space.', 'swapline' ) );
 			}
 			$job['offset'] += strlen( $data );
+			if ( $job['offset'] > $limit ) {
+				fclose( $out );
+				gzclose( $in );
+				self::abort( __( 'The file unpacks to far more data than its size suggests, so it was not imported.', 'swapline' ) );
+			}
 		} while ( microtime( true ) < $deadline );
 
 		fclose( $out );
@@ -310,7 +327,7 @@ final class Importer {
 						/* translators: %s: table name. */
 						$problem = sprintf( __( 'The file creates %s more than once.', 'swapline' ), $statement->table );
 					} else {
-						$job['tables'][ $statement->table ] = self::TEMP . $job['id'] . '_' . count( $job['tables'] );
+						$job['tables'][ $statement->table ] = Tables::scratch_prefix( 'tmp' ) . $job['id'] . '_' . count( $job['tables'] );
 					}
 				} elseif ( Statement::INSERT === $statement->type && $statement->table !== $own && ! isset( $job['tables'][ $statement->table ] ) ) {
 					/* translators: %s: table name. */
@@ -350,7 +367,7 @@ final class Importer {
 		}
 
 		foreach ( $job['tables'] as $table => $temp ) {
-			if ( strlen( $table ) > 64 ) {
+			if ( strlen( $table ) > 64 || strlen( $temp ) > 64 ) {
 				/* translators: %s: table name. */
 				return self::fail( $job, sprintf( __( 'The table name %s is too long.', 'swapline' ), $table ) );
 			}
@@ -436,6 +453,7 @@ final class Importer {
 
 		$splitter   = new Splitter( $file, self::CHUNK );
 		$prefix     = $GLOBALS['wpdb']->base_prefix;
+		$foreign    = Tables::foreign_prefixes();
 		$job['eof'] = false;
 
 		do {
@@ -444,7 +462,7 @@ final class Importer {
 				$job['eof'] = true;
 				break;
 			}
-			$job           = $handle( Statement::parse( $raw, $prefix ), $job );
+			$job           = $handle( Statement::parse( $raw, $prefix, $foreign ), $job );
 			$job['offset'] = $splitter->offset();
 		} while ( microtime( true ) < $deadline );
 
@@ -472,7 +490,7 @@ final class Importer {
 			}
 
 			$table   = new Table( $job['tables'][ $name ] );
-			$columns = $table->text_columns( (bool) $job['replace']['skip_guid'] );
+			$columns = $table->text_columns( (bool) $job['replace']['skip_guid'], (array) ( $job['replace']['columns'] ?? array() ), (array) ( $job['replace']['skip_columns'] ?? array() ) );
 			$rows    = array() === $columns ? array() : $table->fetch( $columns, Table::KEY_NONE === $table->key_type ? $state['offset'] : $state['cursor'], $limit );
 
 			foreach ( $rows as $row ) {
@@ -523,7 +541,7 @@ final class Importer {
 		$old     = array();
 		foreach ( array_keys( $job['tables'] ) as $n => $table ) {
 			if ( self::exists( $table ) ) {
-				$old[]     = self::OLD . $job['id'] . '_' . $n;
+				$old[]     = Tables::scratch_prefix( 'old' ) . $job['id'] . '_' . $n;
 				$renames[] = Tables::quote( $table ) . ' TO ' . Tables::quote( end( $old ) );
 			}
 			$renames[] = Tables::quote( $job['tables'][ $table ] ) . ' TO ' . Tables::quote( $table );
@@ -726,11 +744,10 @@ final class Importer {
 
 	private static function db_error( string $fallback ): string {
 		global $wpdb;
-		if ( '' === (string) $wpdb->last_error ) {
-			return $fallback;
+		if ( '' !== (string) $wpdb->last_error ) {
+			error_log( 'Swapline import: ' . $wpdb->last_error ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- the detail stays in the server log, not the browser.
 		}
-		/* translators: %s: the database error. */
-		return sprintf( __( 'The database reported an error: %s', 'swapline' ), $wpdb->last_error );
+		return $fallback;
 	}
 
 	/**

@@ -15,6 +15,7 @@ final class History {
 	public const DB_VERSION = '1';
 
 	private const MAX_VALUE_BYTES = 262144;
+	private const DRY_RUN_CELLS   = 500;
 
 	public static function table(): string {
 		global $wpdb;
@@ -58,8 +59,22 @@ final class History {
 		return max( 1, (int) apply_filters( 'swapline_history_size', 5 ) );
 	}
 
-	public static function max_recorded_changes(): int {
-		return max( 0, (int) apply_filters( 'swapline_max_recorded_changes', 2000 ) );
+	public static function max_recorded_changes( bool $dry_run = false ): int {
+		$limit = max( 0, (int) apply_filters( 'swapline_max_recorded_changes', 2000 ) );
+		return $dry_run ? min( $limit, self::DRY_RUN_CELLS ) : $limit;
+	}
+
+	/**
+	 * Cells holding credentials are changed but never copied into the history.
+	 *
+	 * @param array<string, string|null> $row
+	 */
+	public static function is_sensitive( string $table, array $row, string $column ): bool {
+		$columns = (array) apply_filters( 'swapline_sensitive_columns', array( 'user_pass', 'user_activation_key' ) );
+		if ( in_array( $column, $columns, true ) ) {
+			return true;
+		}
+		return 'session_tokens' === ( $row['meta_key'] ?? null ) && 'meta_value' === $column && str_ends_with( $table, 'usermeta' );
 	}
 
 	/**
@@ -83,14 +98,34 @@ final class History {
 	}
 
 	/**
+	 * Adds a run, or replaces the entry with the same id. Runs still in progress never count against
+	 * the history size, so a flood of short runs can't push them out.
+	 *
 	 * @param array<string, mixed> $run
 	 */
 	public static function add( array $run ): void {
-		$runs = self::runs();
-		array_unshift( $runs, $run );
-		$runs = array_slice( $runs, 0, self::size() );
-		Store::set( self::OPTION, $runs );
-		self::prune( array_column( $runs, 'id' ) );
+		$runs  = self::runs();
+		$found = false;
+		foreach ( $runs as $i => $existing ) {
+			if ( ( $existing['id'] ?? '' ) === $run['id'] ) {
+				$runs[ $i ] = $run;
+				$found      = true;
+			}
+		}
+		if ( ! $found ) {
+			array_unshift( $runs, $run );
+		}
+
+		$kept  = array();
+		$count = 0;
+		foreach ( $runs as $item ) {
+			if ( 'running' === ( $item['status'] ?? '' ) || $count < self::size() ) {
+				$kept[] = $item;
+				$count += 'running' === ( $item['status'] ?? '' ) ? 0 : 1;
+			}
+		}
+		Store::set( self::OPTION, $kept );
+		self::prune( array_column( $kept, 'id' ) );
 	}
 
 	/**

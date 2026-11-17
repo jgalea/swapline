@@ -47,6 +47,12 @@ final class Command {
 	 * [--include-guid]
 	 * : Also replace in guid columns, which are skipped by default.
 	 *
+	 * [--columns=<columns>]
+	 * : Comma-separated column names. Only these columns are searched.
+	 *
+	 * [--skip-columns=<columns>]
+	 * : Comma-separated column names to leave out.
+	 *
 	 * [--page-size=<rows>]
 	 * : Rows read per batch.
 	 * ---
@@ -55,6 +61,9 @@ final class Command {
 	 *
 	 * [--backup]
 	 * : Back up the tables first. Ignored on a dry run.
+	 *
+	 * [--yes]
+	 * : Don't ask for confirmation before writing.
 	 *
 	 * [--format=<format>]
 	 * : Output format for the per-table report.
@@ -69,6 +78,7 @@ final class Command {
 	 * ## EXAMPLES
 	 *
 	 *     wp swapline run https://old.example.com https://new.example.com --dry-run
+	 *     wp swapline run https://old.example.com https://new.example.com --yes
 	 *     wp swapline run 'https?://old\.example\.com/(\d+)' 'https://new.example.com/$1' wp_posts --regex
 	 *     wp swapline run --profile="Staging to live"
 	 *
@@ -115,6 +125,14 @@ final class Command {
 		if ( WP_CLI\Utils\get_flag_value( $assoc_args, 'include-guid', false ) ) {
 			$input['skip_guid'] = false;
 		}
+		foreach ( array(
+			'columns'      => 'columns',
+			'skip-columns' => 'skip_columns',
+		) as $flag => $field ) {
+			if ( isset( $assoc_args[ $flag ] ) ) {
+				$input[ $field ] = (string) $assoc_args[ $flag ];
+			}
+		}
 		if ( isset( $assoc_args['page-size'] ) && ! isset( $assoc_args['profile'] ) ) {
 			$input['page_size'] = (int) $assoc_args['page-size'];
 		}
@@ -124,16 +142,25 @@ final class Command {
 			WP_CLI::error( $config->get_error_message() );
 		}
 
-		if ( ! $config['dry_run'] && WP_CLI\Utils\get_flag_value( $assoc_args, 'backup', false ) ) {
-			$this->backup_tables( $config['tables'], null );
+		if ( ! $config['dry_run'] ) {
+			WP_CLI::confirm( sprintf( 'Replace in %d tables? This writes to the database.', count( $config['tables'] ) ), $assoc_args );
 		}
 
-		$job      = Runner::start( $config, 'cli' );
+		if ( ! $config['dry_run'] && WP_CLI\Utils\get_flag_value( $assoc_args, 'backup', false ) ) {
+			$backup = basename( $this->backup_tables( $config['tables'], null ) );
+		}
+
+		$job = Runner::start( $config, 'cli' );
+		if ( isset( $backup ) ) {
+			$job['backup'] = $backup;
+		}
+		Runner::checkpoint( $job );
 		$progress = WP_CLI\Utils\make_progress_bar( $config['dry_run'] ? 'Dry run' : 'Replacing', count( $config['tables'] ) );
 		$index    = 0;
 
 		while ( ! $job['done'] ) {
 			$job = Runner::step( $job );
+			Runner::checkpoint( $job );
 			while ( $index < $job['table_index'] ) {
 				$progress->tick();
 				++$index;
@@ -194,6 +221,12 @@ final class Command {
 	 * [--include-guid]
 	 * : Also replace in guid columns.
 	 *
+	 * [--columns=<columns>]
+	 * : Comma-separated column names. Only these columns are searched.
+	 *
+	 * [--skip-columns=<columns>]
+	 * : Comma-separated column names to leave out.
+	 *
 	 * [--porcelain]
 	 * : Print only the path of the backup.
 	 *
@@ -246,6 +279,12 @@ final class Command {
 	 *
 	 * [--include-guid]
 	 * : Also replace in guid columns.
+	 *
+	 * [--columns=<columns>]
+	 * : Comma-separated column names. Only these columns are searched.
+	 *
+	 * [--skip-columns=<columns>]
+	 * : Comma-separated column names to leave out.
 	 *
 	 * [--keep-url]
 	 * : Keep this site's siteurl and home instead of the values in the file.
@@ -360,6 +399,8 @@ final class Command {
 				'case_insensitive' => (bool) WP_CLI\Utils\get_flag_value( $assoc_args, 'case-insensitive', false ),
 				'regex'            => (bool) WP_CLI\Utils\get_flag_value( $assoc_args, 'regex', false ),
 				'skip_guid'        => ! WP_CLI\Utils\get_flag_value( $assoc_args, 'include-guid', false ),
+				'columns'          => (string) ( $assoc_args['columns'] ?? '' ),
+				'skip_columns'     => (string) ( $assoc_args['skip-columns'] ?? '' ),
 				'dry_run'          => false,
 			),
 			null !== $tables

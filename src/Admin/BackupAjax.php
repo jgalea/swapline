@@ -27,7 +27,7 @@ final class BackupAjax {
 		if ( ! check_ajax_referer( 'swapline_' . $action, 'nonce', false ) ) {
 			wp_send_json_error( array( 'message' => __( 'Your session has expired. Reload the page and try again.', 'swapline' ) ), 403 );
 		}
-		if ( ! current_user_can( Plugin::capability() ) ) {
+		if ( ! current_user_can( Plugin::database_capability() ) ) {
 			wp_send_json_error( array( 'message' => __( 'You do not have permission to do that.', 'swapline' ) ), 403 );
 		}
 	}
@@ -288,7 +288,7 @@ final class BackupAjax {
 	 * Streams a backup to the browser. Files are never served by URL.
 	 */
 	public static function download(): void {
-		if ( ! current_user_can( Plugin::capability() ) ) {
+		if ( ! current_user_can( Plugin::database_capability() ) ) {
 			wp_die( esc_html__( 'You do not have permission to download backups.', 'swapline' ), '', array( 'response' => 403 ) );
 		}
 
@@ -340,6 +340,7 @@ final class BackupAjax {
 				'tables'   => $backup['tables'] > 0 ? number_format_i18n( $backup['tables'] ) : '',
 				'note'     => implode( ' · ', array_filter( array( $note, '' !== $backup['user'] ? sprintf( /* translators: %s: user login. */ __( 'By %s', 'swapline' ), $backup['user'] ) : '' ) ) ),
 				'download' => Storage::download_url( $backup['name'] ),
+				'restore'  => ! Tables::uses_sqlite(),
 			);
 		}
 		return $rows;

@@ -2,11 +2,13 @@
 
 namespace Swapline\Admin;
 
+use Swapline\Backup\Storage;
 use Swapline\Database\Tables;
 use Swapline\Plugin;
 use Swapline\Run\Config;
 use Swapline\Run\History;
 use Swapline\Run\Profiles;
+use Swapline\Run\Runner;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -62,10 +64,11 @@ final class Page {
 			'swapline-admin',
 			'window.swaplineAdmin = ' . wp_json_encode(
 				array(
-					'ajaxUrl'  => admin_url( 'admin-ajax.php' ),
-					'nonces'   => $nonces,
-					'profiles' => (object) Profiles::all(),
-					'defaults' => Config::defaults(),
+					'ajaxUrl'    => admin_url( 'admin-ajax.php' ),
+					'nonces'     => $nonces,
+					'profiles'   => (object) Profiles::all(),
+					'defaults'   => Config::defaults(),
+					'unfinished' => Ajax::job_summary( Runner::current() ),
 				)
 			) . ';',
 			'before'
@@ -117,7 +120,10 @@ final class Page {
 	}
 
 	public static function render_replace(): void {
-		$tables    = Tables::all();
+		$tables = Tables::all();
+		if ( ! current_user_can( Plugin::database_capability() ) ) {
+			$tables = array_diff_key( $tables, array_flip( Plugin::protected_tables( array_keys( $tables ) ) ) );
+		}
 		$multisite = is_multisite();
 		$sites     = $multisite ? self::site_labels( array_unique( array_column( $tables, 'site' ) ) ) : array();
 		$profiles  = Profiles::all();
@@ -136,6 +142,14 @@ final class Page {
 
 		<div id="swapline-notice" class="notice inline hidden" role="status" aria-live="polite"><p></p></div>
 
+		<div id="swapline-resume" class="notice notice-warning inline hidden">
+			<p></p>
+			<p>
+				<button type="button" class="button button-primary" data-action="resume"><?php esc_html_e( 'Resume', 'swapline' ); ?></button>
+				<button type="button" class="button" data-action="stop"><?php esc_html_e( 'Stop and keep the record', 'swapline' ); ?></button>
+			</p>
+		</div>
+
 		<form id="swapline-form" novalidate>
 			<table class="form-table" role="presentation">
 				<tr>
@@ -144,7 +158,14 @@ final class Page {
 				</tr>
 				<tr>
 					<th scope="row"><label for="swapline-replace"><?php esc_html_e( 'Replace with', 'swapline' ); ?></label></th>
-					<td><textarea id="swapline-replace" name="replace" class="large-text code" rows="2" spellcheck="false"></textarea></td>
+					<td>
+						<textarea id="swapline-replace" name="replace" class="large-text code" rows="2" spellcheck="false"></textarea>
+						<div id="swapline-extra-pairs"></div>
+						<p>
+							<button type="button" class="button" id="swapline-add-pair"><?php esc_html_e( 'Add another pair', 'swapline' ); ?></button>
+							<span class="description"><?php esc_html_e( 'Pairs run in order, each on the result of the one before.', 'swapline' ); ?></span>
+						</p>
+					</td>
 				</tr>
 				<tr>
 					<th scope="row"><?php esc_html_e( 'Tables', 'swapline' ); ?></th>
@@ -154,6 +175,15 @@ final class Page {
 							<button type="button" class="button" data-select="core"><?php esc_html_e( 'Core tables only', 'swapline' ); ?></button>
 							<button type="button" class="button" data-select="none"><?php esc_html_e( 'Clear', 'swapline' ); ?></button>
 							<label for="swapline-table-filter" class="screen-reader-text"><?php esc_html_e( 'Filter tables', 'swapline' ); ?></label>
+							<?php if ( $multisite && count( $sites ) > 2 ) : ?>
+								<label for="swapline-site-filter" class="screen-reader-text"><?php esc_html_e( 'Show tables of one site', 'swapline' ); ?></label>
+								<select id="swapline-site-filter">
+									<option value=""><?php esc_html_e( 'All sites', 'swapline' ); ?></option>
+									<?php foreach ( $sites as $site_id => $label ) : ?>
+										<option value="<?php echo esc_attr( (string) $site_id ); ?>"><?php echo esc_html( $label ); ?></option>
+									<?php endforeach; ?>
+								</select>
+							<?php endif; ?>
 							<input type="search" id="swapline-table-filter" placeholder="<?php esc_attr_e( 'Filter tables', 'swapline' ); ?>">
 							<span id="swapline-selected-count" class="description"></span>
 						</div>
@@ -172,7 +202,7 @@ final class Page {
 								</thead>
 								<tbody>
 									<?php foreach ( $tables as $table ) : ?>
-										<tr data-core="<?php echo $table['core'] ? '1' : '0'; ?>" data-name="<?php echo esc_attr( $table['name'] ); ?>">
+										<tr data-core="<?php echo $table['core'] ? '1' : '0'; ?>" data-site="<?php echo esc_attr( (string) $table['site'] ); ?>" data-name="<?php echo esc_attr( $table['name'] ); ?>">
 											<th scope="row" class="check-column">
 												<input type="checkbox" name="tables[]" value="<?php echo esc_attr( $table['name'] ); ?>" id="swapline-t-<?php echo esc_attr( md5( $table['name'] ) ); ?>">
 											</th>
@@ -201,6 +231,20 @@ final class Page {
 							<label><input type="checkbox" name="skip_guid" value="1" checked> <?php esc_html_e( 'Skip the guid column', 'swapline' ); ?></label><br>
 							<label><input type="checkbox" name="dry_run" value="1" checked> <?php esc_html_e( 'Dry run: report what would change without writing anything', 'swapline' ); ?></label>
 						</fieldset>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="swapline-columns"><?php esc_html_e( 'Columns', 'swapline' ); ?></label></th>
+					<td>
+						<p>
+							<label for="swapline-columns"><?php esc_html_e( 'Only these columns', 'swapline' ); ?></label><br>
+							<input type="text" id="swapline-columns" name="columns" class="regular-text code" placeholder="post_content, meta_value" spellcheck="false">
+						</p>
+						<p>
+							<label for="swapline-skip-columns"><?php esc_html_e( 'Skip these columns', 'swapline' ); ?></label><br>
+							<input type="text" id="swapline-skip-columns" name="skip_columns" class="regular-text code" placeholder="post_password" spellcheck="false">
+						</p>
+						<p class="description"><?php esc_html_e( 'Separate column names with commas. Leave both empty to search every text column.', 'swapline' ); ?></p>
 					</td>
 				</tr>
 				<tr>
@@ -247,8 +291,10 @@ final class Page {
 	}
 
 	public static function render_history(): void {
-		$runs = History::runs();
+		$runs    = array_values( array_filter( History::runs(), static fn( array $run ): bool => Plugin::can_see_tables( array_keys( (array) $run['tables'] ) ) ) );
+		$restore = current_user_can( Plugin::database_capability() ) && ! Tables::uses_sqlite();
 		?>
+		<div id="swapline-notice" class="notice inline hidden" role="status" aria-live="polite"><p></p></div>
 		<p>
 			<?php
 			echo esc_html(
@@ -284,24 +330,55 @@ final class Page {
 				<?php foreach ( $runs as $run ) : ?>
 					<tr>
 						<td>
-							<?php echo esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), (int) $run['started'] ) ); ?>
+							<?php echo esc_html( self::date( (int) $run['started'] ) ); ?>
 							<br><span class="description"><?php echo esc_html( trim( $run['user'] . ' · ' . $run['source'], ' ·' ) ); ?></span>
 						</td>
-						<td><code><?php echo esc_html( self::excerpt( (string) $run['config']['search'] ) ); ?></code></td>
-						<td><code><?php echo esc_html( self::excerpt( (string) $run['config']['replace'] ) ); ?></code></td>
-						<td>
+						<td data-label="<?php echo esc_attr__( 'Search', 'swapline' ); ?>"><code><?php echo esc_html( self::excerpt( (string) $run['config']['search'] ) ); ?></code></td>
+						<td data-label="<?php echo esc_attr__( 'Replace', 'swapline' ); ?>">
+							<code><?php echo esc_html( self::excerpt( (string) $run['config']['replace'] ) ); ?></code>
+							<?php if ( count( (array) ( $run['config']['pairs'] ?? array() ) ) > 1 ) : ?>
+								<br><span class="description">
+									<?php
+									echo esc_html(
+										sprintf(
+											/* translators: %s: number of extra search and replace pairs. */
+											_n( '+ %s more pair', '+ %s more pairs', count( $run['config']['pairs'] ) - 1, 'swapline' ),
+											number_format_i18n( count( $run['config']['pairs'] ) - 1 )
+										)
+									);
+									?>
+								</span>
+							<?php endif; ?>
+						</td>
+						<td data-label="<?php echo esc_attr__( 'Mode', 'swapline' ); ?>">
 							<?php echo esc_html( $run['config']['dry_run'] ? __( 'Dry run', 'swapline' ) : __( 'Live', 'swapline' ) ); ?>
 							<?php if ( 'cancelled' === $run['status'] ) : ?>
 								<br><span class="description"><?php esc_html_e( 'Cancelled', 'swapline' ); ?></span>
+							<?php elseif ( 'running' === $run['status'] ) : ?>
+								<br><span class="description"><?php esc_html_e( 'Unfinished', 'swapline' ); ?></span>
 							<?php endif; ?>
 						</td>
-						<td class="num"><?php echo esc_html( number_format_i18n( (int) $run['totals']['rows_matched'] ) ); ?></td>
-						<td class="num"><?php echo esc_html( number_format_i18n( (int) $run['totals']['cells_changed'] ) ); ?></td>
-						<td><button type="button" class="button" data-run="<?php echo esc_attr( $run['id'] ); ?>"><?php esc_html_e( 'View changes', 'swapline' ); ?></button></td>
+						<td class="num" data-label="<?php echo esc_attr__( 'Rows', 'swapline' ); ?>"><?php echo esc_html( number_format_i18n( (int) $run['totals']['rows_matched'] ) ); ?></td>
+						<td class="num" data-label="<?php echo esc_attr__( 'Cells', 'swapline' ); ?>"><?php echo esc_html( number_format_i18n( (int) $run['totals']['cells_changed'] ) ); ?></td>
+						<td class="swapline-actions">
+							<button type="button" class="button" data-run="<?php echo esc_attr( $run['id'] ); ?>"><?php esc_html_e( 'View changes', 'swapline' ); ?></button>
+							<?php if ( empty( $run['config']['dry_run'] ) && 'running' !== $run['status'] && empty( $run['undone'] ) && empty( $run['truncated'] ) && (int) $run['totals']['cells_changed'] > 0 ) : ?>
+								<button type="button" class="button" data-undo="<?php echo esc_attr( $run['id'] ); ?>"><?php esc_html_e( 'Undo this run', 'swapline' ); ?></button>
+							<?php elseif ( ! empty( $run['undone'] ) ) : ?>
+								<span class="description"><?php esc_html_e( 'Undone', 'swapline' ); ?></span>
+							<?php endif; ?>
+							<?php if ( $restore && ! empty( $run['backup'] ) && null !== Storage::path( (string) $run['backup'], 'backup' ) && is_file( (string) Storage::path( (string) $run['backup'], 'backup' ) ) ) : ?>
+								<button type="button" class="button" data-restore="<?php echo esc_attr( $run['backup'] ); ?>" data-created="<?php echo esc_attr( self::date( (int) $run['started'] ) ); ?>"><?php esc_html_e( 'Restore backup from before this run', 'swapline' ); ?></button>
+							<?php endif; ?>
+						</td>
 					</tr>
 				<?php endforeach; ?>
 			</tbody>
 		</table>
+		</div>
+		<div id="swapline-progress" class="hidden">
+			<progress max="100" value="0"></progress>
+			<p class="swapline-progress-text" aria-live="polite"></p>
 		</div>
 		<script type="application/json" id="swapline-history-data"><?php echo wp_json_encode( $runs, JSON_HEX_TAG | JSON_HEX_AMP ); ?></script>
 		<div id="swapline-results" class="hidden"></div>
@@ -323,6 +400,10 @@ final class Page {
 			$labels[ $id ] = $site ? untrailingslashit( $site->domain . $site->path ) : sprintf( /* translators: %d: site ID. */ __( 'Site %d', 'swapline' ), $id );
 		}
 		return $labels;
+	}
+
+	private static function date( int $time ): string {
+		return wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $time );
 	}
 
 	private static function excerpt( string $value ): string {

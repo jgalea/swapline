@@ -14,11 +14,13 @@ foreach ( array( 'swapline_runs', 'swapline_profiles', 'swapline_job', 'swapline
 	}
 }
 
+delete_transient( 'swapline_folder_exposed' );
+
 $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->base_prefix}swapline_changes" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
-foreach ( array( 'swapline_tmp_', 'swapline_old_' ) as $swapline_prefix ) {
-	foreach ( (array) $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $swapline_prefix ) . '%' ) ) as $swapline_table ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		if ( preg_match( '/^swapline_(?:tmp|old)_[a-f0-9]{8}_\d+$/', $swapline_table ) ) {
+foreach ( array( 'tmp', 'old' ) as $swapline_kind ) {
+	foreach ( (array) $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $wpdb->base_prefix . 'swapline_' . $swapline_kind . '_' ) . '%' ) ) as $swapline_table ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		if ( preg_match( '/^' . preg_quote( $wpdb->base_prefix, '/' ) . 'swapline_(?:tmp|old)_[a-f0-9]{8}_\d+$/', $swapline_table ) ) {
 			$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $swapline_table ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- name matched against the plugin's own pattern.
 		}
 	}
